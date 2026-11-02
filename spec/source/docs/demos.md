@@ -14,7 +14,7 @@ A fictional outdoor-gear store built for testing Poppy using Atlas, a demo perso
 
 If you are building your own personal agent, you can point it at [the store](https://www.cliffside-retail.com/) and follow its requests in the [protocol inspector](https://www.cliffside-retail.com/inspect).
 
-[Talk to Atlas](https://www.cliffside-retail.com/atlas) · Version 0.2
+[Talk to Atlas](https://www.cliffside-retail.com/atlas) · Version 0.3
 
 ## Poppy Demo Agent
 
