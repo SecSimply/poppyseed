@@ -1,0 +1,11 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "buildCommand": "pnpm install --frozen-lockfile && pnpm --filter poppyseed-site build"
+  },
+  "deploy": {
+    "startCommand": "pnpm --filter poppyseed-site start",
+    "numReplicas": 1,
+    "restartPolicyType": "ON_FAILURE"
+  }
+}
