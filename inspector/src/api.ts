@@ -1,0 +1,39 @@
+import type { InspectorConfig, ProtocolEvent } from "../shared/events.ts";
+
+const headers = (token: string) => ({ authorization: `Bearer ${token}` });
+
+export class Unauthorized extends Error {}
+
+export async function getConfig(token: string): Promise<InspectorConfig> {
+	const response = await fetch("/api/config", { headers: headers(token) });
+	if (response.status === 401) throw new Unauthorized();
+	if (!response.ok) throw new Error(`config: HTTP ${response.status}`);
+	return response.json();
+}
+
+export async function startRun(token: string): Promise<string> {
+	const response = await fetch("/api/runs", { method: "POST", headers: headers(token) });
+	if (response.status === 401) throw new Unauthorized();
+	const body = await response.json();
+	if (!response.ok) throw new Error(body.error ?? `HTTP ${response.status}`);
+	return body.runId;
+}
+
+/** Reads the run's server-sent events. fetch, not EventSource, so the token travels in a header and not the URL. */
+export async function streamRun(token: string, runId: string, onEvent: (event: ProtocolEvent) => void, signal: AbortSignal): Promise<void> {
+	const response = await fetch(`/api/runs/${runId}/events`, { headers: headers(token), signal });
+	if (!response.ok || !response.body) throw new Error(`events: HTTP ${response.status}`);
+	const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+	let buffer = "";
+	for (;;) {
+		const { value, done } = await reader.read();
+		if (done) return;
+		buffer += value;
+		for (let end = buffer.indexOf("\n\n"); end >= 0; end = buffer.indexOf("\n\n")) {
+			const chunk = buffer.slice(0, end);
+			buffer = buffer.slice(end + 2);
+			const data = chunk.split("\n").filter((l) => l.startsWith("data: ")).map((l) => l.slice(6)).join("\n");
+			if (data) onEvent(JSON.parse(data) as ProtocolEvent);
+		}
+	}
+}
