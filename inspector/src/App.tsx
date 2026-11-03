@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import type { InspectorConfig, ProtocolEvent } from "../shared/events.ts";
-import { getConfig, startRun, streamRun, Unauthorized } from "./api.ts";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { AuthInfo, InspectorConfig, ProtocolEvent } from "../shared/events.ts";
+import { cancelRun, decide, getAuthInfo, getConfig, logout, startRun, streamRun, Unauthorized } from "./api.ts";
 
 type Http = Extract<ProtocolEvent, { type: "http" }>;
 interface Step {
@@ -43,6 +43,49 @@ const pretty = (body?: string) => {
 		return body;
 	}
 };
+
+type Action = Extract<ProtocolEvent, { type: "action.required" }>;
+
+/** The run is waiting for a person: the latest action.required that nothing has resolved, while the run is live. */
+function pendingAction(events: ProtocolEvent[]): Action | undefined {
+	if (events.some((e) => e.type === "run.end")) return undefined;
+	for (let i = events.length - 1; i >= 0; i--) {
+		const e = events[i]!;
+		if (e.type === "action.required") return e;
+		if (e.type === "action.resolved") return undefined;
+	}
+	return undefined;
+}
+
+function ActionPanel({ action, onDecide }: { action: Action; onDecide: (d: "approve" | "decline") => void }) {
+	return (
+		<section className="action" role="alert" aria-live="polite">
+			<h2>{action.title}</h2>
+			{action.lines.map((l, i) => (
+				<p key={i}>{l}</p>
+			))}
+			{action.code && (
+				<p>
+					Code <code className="code">{action.code}</code>
+				</p>
+			)}
+			{action.link && /^https?:\/\//.test(action.link) && (
+				<p>
+					<a href={action.link} target="_blank" rel="noopener noreferrer">
+						{action.link}
+					</a>
+				</p>
+			)}
+			{action.kind === "approve-operation" && (
+				<p className="buttons">
+					<button className="run" onClick={() => onDecide("approve")}>Approve</button>
+					<button onClick={() => onDecide("decline")}>Decline</button>
+				</p>
+			)}
+			{action.kind !== "approve-operation" && <p className="note">Waiting for the person. The run continues when they have decided.</p>}
+		</section>
+	);
+}
 
 function Headers({ headers }: { headers: Record<string, string> }) {
 	const entries = Object.entries(headers);
@@ -88,9 +131,11 @@ function Exchange({ http }: { http: Http }) {
 }
 
 export function App() {
+	const [auth, setAuth] = useState<AuthInfo>();
 	const [token, setToken] = useState(remember);
 	const [config, setConfig] = useState<InspectorConfig>();
 	const [events, setEvents] = useState<ProtocolEvent[]>([]);
+	const [runId, setRunId] = useState<string>();
 	const [selected, setSelected] = useState<string>();
 	const [running, setRunning] = useState(false);
 	const [error, setError] = useState<string>();
@@ -100,37 +145,62 @@ export function App() {
 		try {
 			setConfig(await getConfig(t));
 			setError(undefined);
-			try {
-				sessionStorage.setItem(TOKEN_KEY, t);
-			} catch {
-				/* private mode: the token just isn't remembered */
+			if (t) {
+				try {
+					sessionStorage.setItem(TOKEN_KEY, t);
+				} catch {
+					/* private mode: the token just isn't remembered */
+				}
 			}
 		} catch (e) {
 			setConfig(undefined);
-			setError(e instanceof Unauthorized ? "That token was not accepted." : String(e));
+			if (!(e instanceof Unauthorized) || t) setError(e instanceof Unauthorized ? "That token was not accepted." : String(e));
 		}
 	}, []);
 
-	const run = useCallback(async () => {
-		abort.current?.abort();
-		const controller = (abort.current = new AbortController());
+	useEffect(() => {
+		void getAuthInfo()
+			.then((info) => {
+				setAuth(info);
+				// Signed in with Curity, a remembered token, or a development server with no login at all.
+				if (info.user || token || (!info.oidc && !info.token)) return connect(token);
+			})
+			.catch((e) => setError(String(e)));
+	}, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+	const run = useCallback(
+		async (signIn: boolean) => {
+			abort.current?.abort();
+			const controller = (abort.current = new AbortController());
+			setEvents([]);
+			setSelected(undefined);
+			setError(undefined);
+			setRunning(true);
+			try {
+				const id = await startRun(token, signIn);
+				setRunId(id);
+				await streamRun(token, id, (e) => setEvents((prev) => [...prev, e]), controller.signal);
+			} catch (e) {
+				if (!controller.signal.aborted) setError(String(e instanceof Error ? e.message : e));
+			} finally {
+				setRunning(false);
+			}
+		},
+		[token],
+	);
+
+	const answer = (d: "approve" | "decline") => runId && void decide(token, runId, d).catch((e) => setError(String(e.message ?? e)));
+	const signOut = async () => {
+		await logout();
+		setConfig(undefined);
 		setEvents([]);
-		setSelected(undefined);
-		setError(undefined);
-		setRunning(true);
-		try {
-			const runId = await startRun(token);
-			await streamRun(token, runId, (e) => setEvents((prev) => [...prev, e]), controller.signal);
-		} catch (e) {
-			if (!controller.signal.aborted) setError(String(e instanceof Error ? e.message : e));
-		} finally {
-			setRunning(false);
-		}
-	}, [token]);
+		setAuth(await getAuthInfo());
+	};
 
 	const steps = useMemo(() => toSteps(events), [events]);
 	const current = steps.find((s) => s.id === selected) ?? steps.at(-1);
 	const end = events.find((e) => e.type === "run.end");
+	const action = pendingAction(events);
 
 	return (
 		<main>
@@ -140,30 +210,55 @@ export function App() {
 					<p className="meta">
 						<span>Target <code>{config.target}</code></span>
 						<span>Agent <code>{config.clientId}</code></span>
+						{auth?.user && (
+							<span>
+								Signed in as <code>{auth.user.email ?? auth.user.sub}</code> <button className="link" onClick={() => void signOut()}>Sign out</button>
+							</span>
+						)}
 						{!config.redacted && <strong className="warn">credentials are not redacted</strong>}
 					</p>
 				) : (
-					<form
-						onSubmit={(e) => {
-							e.preventDefault();
-							void connect(token);
-						}}
-					>
-						<label>
-							Access token <input type="password" value={token} onChange={(e) => setToken(e.target.value)} autoComplete="off" />
-						</label>
-						<button>Connect</button>
-					</form>
+					auth && (
+						<div className="login">
+							{auth.oidc && (
+								<p>
+									<a className="button run" href="/auth/login">Sign in with Curity</a>
+								</p>
+							)}
+							{auth.token && (
+								<form
+									onSubmit={(e) => {
+										e.preventDefault();
+										void connect(token);
+									}}
+								>
+									<label>
+										{auth.oidc ? "Or an access token " : "Access token "}
+										<input type="password" value={token} onChange={(e) => setToken(e.target.value)} autoComplete="off" />
+									</label>
+									<button>Connect</button>
+								</form>
+							)}
+						</div>
+					)
 				)}
 				{error && <p role="alert" className="error">{error}</p>}
 			</header>
 
 			{config && (
 				<>
-					<button className="run" onClick={() => void run()} disabled={running}>
-						{running ? "Running…" : events.length ? "Run again" : "Run journey"}
-					</button>
-					{end?.type === "run.end" && <span className={end.ok ? "pill ok" : "pill failed"}>{end.ok ? "all steps passed" : "stopped at a failing step"}</span>}
+					<div className="controls">
+						<button className="run" onClick={() => void run(false)} disabled={running}>
+							{running ? "Running…" : "Run journey"}
+						</button>
+						<button onClick={() => void run(true)} disabled={running} title="Needs a person to approve in their own browser">
+							Run with sign-in and operations
+						</button>
+						{running && runId && <button onClick={() => void cancelRun(token, runId)}>Cancel</button>}
+						{end?.type === "run.end" && <span className={end.ok ? "pill ok" : "pill failed"}>{end.ok ? "all steps passed" : "stopped at a failing step"}</span>}
+					</div>
+
+					{action && <ActionPanel action={action} onDecide={answer} />}
 
 					<div className="layout">
 						<ol className="steps" aria-label="Steps">

@@ -61,6 +61,9 @@ importers:
 
   inspector:
     dependencies:
+      jose:
+        specifier: ^6.0.0
+        version: 6.2.13
       poppyseed:
         specifier: workspace:*
         version: link:../packages/core

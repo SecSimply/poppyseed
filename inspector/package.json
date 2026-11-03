@@ -8,9 +8,11 @@
     "dev:ui": "vite",
     "build": "vite build",
     "start": "node --experimental-strip-types --no-warnings server/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
+    "jose": "^6.0.0",
     "poppyseed": "workspace:*",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
