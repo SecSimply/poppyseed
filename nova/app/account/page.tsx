@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { poppyseed } from "../../poppyseed.config";
+import { accountsOf, balanceCents, money } from "../../lib/bank";
 import { SITE_COOKIE, siteCustomer } from "../../lib/customers";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +36,25 @@ export default async function Account() {
 				<p className="kicker">Signed in as {customer.email}</p>
 				<h1>{customer.name}</h1>
 			</header>
+			<section aria-labelledby="accounts">
+				<h2 id="accounts">Your accounts</h2>
+				<div className="card scroll">
+					<table className="table">
+						<thead>
+							<tr><th>Account</th><th>Type</th><th className="r">Balance</th></tr>
+						</thead>
+						<tbody>
+							{accountsOf(customer.id).map((a) => (
+								<tr key={a.id}>
+									<td><strong>{a.name}</strong> <span className="muted num">••{a.endingDigits}</span></td>
+									<td>{a.type}</td>
+									<td className="r num">${Number(money(balanceCents(a)).amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
+				</div>
+			</section>
 			<section aria-labelledby="connected">
 				<h2 id="connected">Connected personal agents</h2>
 				{connections.length === 0 ? (

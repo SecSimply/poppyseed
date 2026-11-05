@@ -1,6 +1,7 @@
-import { definePoppyseed, memoryStore, safeFetch, tool } from "poppyseed";
+import { definePoppyseed, memoryStore, safeFetch, tool, ToolError } from "poppyseed";
 import { after } from "next/server";
 import { z } from "zod";
+import { accountOf, accountsOf, balanceCents, money, transactionsOf } from "./lib/bank.ts";
 import { SITE_COOKIE, siteCustomer } from "./lib/customers.ts";
 import { BRANCHES, CITIES, RATES } from "./lib/products.ts";
 
@@ -57,6 +58,44 @@ export const poppyseed = definePoppyseed({
 	fetch: (input, init) => (allowLoopback ? fetch(input, init) : safeFetch(input, init)),
 
 	tools: {
+		list_accounts: tool({
+			description: "Your Nova Bank accounts with their balances. Shows only the last four digits of each account number.",
+			scope: "accounts:read",
+			input: z.object({}),
+			run: (_input, ctx) => ({
+				accounts: accountsOf(ctx.account.id).map((a) => ({
+					account_id: a.id,
+					name: a.name,
+					type: a.type,
+					ending: a.endingDigits,
+					balance: money(balanceCents(a)),
+				})),
+			}),
+		}),
+		list_transactions: tool({
+			description: "Transactions on one of your accounts, newest first. It doesn't show balances; list_accounts does.",
+			scope: "transactions:read",
+			input: z.object({
+				account_id: z.string().describe("An account_id from list_accounts"),
+				from: z.iso.date().optional().describe("Earliest date, YYYY-MM-DD"),
+				to: z.iso.date().optional().describe("Latest date, YYYY-MM-DD"),
+				limit: z.number().int().min(1).max(100).optional().describe("How many to return. Default 20"),
+			}),
+			run: ({ account_id, from, to, limit }, ctx) => {
+				const account = accountOf(ctx.account.id, account_id);
+				if (!account) throw new ToolError(`No account ${account_id}. list_accounts lists yours.`);
+				return {
+					account_id,
+					transactions: transactionsOf(account, { from, to, limit }).map((t) => ({
+						transaction_id: t.id,
+						date: t.date,
+						description: t.description,
+						category: t.category,
+						amount: money(t.cents),
+					})),
+				};
+			},
+		}),
 		get_rates: tool({
 			description: "Nova Bank's published rates for savings, mortgages and personal loans. No sign-in needed.",
 			scope: null,
