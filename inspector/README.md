@@ -16,10 +16,11 @@ A protocol debugger for developers. It runs a real Personal Agent (`poppyseed/ag
 
 Steps:
 
-1. **Discover**, **start a Session**, **list tools over MCP**, **call a public tool**. Anonymous: "Run journey".
+1. **Discover**, **start a Session**, **list tools over MCP**, **call a public tool**, and **ask the company's agent** a question (skipped when the company has none). Anonymous: "Run journey".
 2. With "Run with sign-in and operations", which needs a person:
    - **Sign a person in** with Device Sign-In. The UI shows the company's link and code; you approve in your own browser. The link is shown only if its host is the issuer's or a protected resource's (spec 4.6).
    - **Call a scoped tool** with the signed-in Session.
+   - **Ask the company's agent about your account** in a new conversation, now signed in, then **ask for a person**: the conversation is left open in the company's queue for staff to take.
    - **Propose an operation** (a booking). The UI shows its summary and terms.
    - **The person decides**: Approve or Decline in the UI. Nothing is confirmed before that, and an unanswered run declines after 10 minutes. When the company requires the person's own approval, the agent confirms as the user and never as a standing permission. With `STANDING_PERMISSION=1`, an operation that does not require it is confirmed under the permission without asking.
    - **Sign out**: revokes the Account Token, whether or not the journey finished (spec 4.9).
@@ -54,6 +55,7 @@ The agent's identity is hosted by this server on its own HTTPS origin, so the ta
 | `SIGNIN_SCOPES` | Scopes to request at sign-in. Defaults to the demo's, else every scope the site offers. |
 | `SCOPED_TOOL`, `SCOPED_TOOL_ARGS` | The tool for "call a scoped tool". Default `my_trips`. |
 | `OPERATION_TOOL`, `OPERATION_ARGS` | The tool that proposes an operation. Default `book_flight`, with the first offer from the public tool's results. |
+| `CHAT_QUESTION`, `CHAT_ACCOUNT_QUESTION` | What the chat steps say to the company's agent: signed out (default `What can you help me with?`) and signed in (default `What are my balances?`). |
 | `OPERATIONS` | A JSON list of `{label, tool, arguments}` operations the longer run can propose. The person picks one before running. When set, it replaces `OPERATION_TOOL` and `OPERATION_ARGS`. |
 | `STANDING_PERMISSION=1` | Let the agent confirm, without asking, an operation the company does not require the person's own approval for. It is confirmed as `standing_permission`. One the company requires the person's own approval for is never confirmed this way. Off by default. |
 

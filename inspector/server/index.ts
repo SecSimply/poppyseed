@@ -49,6 +49,9 @@ const signInOptions = (operation: OperationPreset) => ({
 	standingPermission: process.env.STANDING_PERMISSION === "1",
 });
 
+/** What the chat steps say to the company's agent. They are skipped when the target has no conversations. */
+const chat = { hello: process.env.CHAT_QUESTION ?? "What can you help me with?", account: process.env.CHAT_ACCOUNT_QUESTION ?? "What are my balances?" };
+
 /** A 1x1 transparent PNG. */
 const LOGO = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
 
@@ -107,7 +110,7 @@ function startRun(signIn: boolean, faultId?: string, operation: OperationPreset 
 	const fault = FAULTS.find((f) => f.id === faultId);
 	void (fault
 		? runFault(agent, fault, { target, emit: send, setStep, onDiscovered })
-		: runJourney(agent, { target, emit: send, setStep, publicTool, signIn: signIn ? signInOptions(operation) : undefined, decide, signal: run.abort.signal, onDiscovered })
+		: runJourney(agent, { target, emit: send, setStep, publicTool, chat, signIn: signIn ? signInOptions(operation) : undefined, decide, signal: run.abort.signal, onDiscovered })
 	)
 		.catch((error) => {
 			send({ type: "step.end", step: active?.step ?? "", ok: false, summary: [], error: String(error), at: Date.now() });

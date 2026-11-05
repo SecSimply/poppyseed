@@ -2,7 +2,7 @@
 
 A fictional bank that shows what a personal agent can do with the Personal Agent Protocol. It is a Poppyseed site, like Poppy Travel in `site/`, with a banking theme and a short list of services. Nothing here is real: no money, accounts or people.
 
-**Status:** phase 3 of 8. Rates, branches, accounts, balances, transactions and payments work, with Direct and Device Sign-In and separate scopes. Support chat, browsing and blocking come next. The plan is in the project history; each phase adds one capability.
+**Status:** phase 4 of 8. Rates, branches, accounts, balances, transactions, payments and a support chat work, with Direct and Device Sign-In and separate scopes. Browsing and blocking come next. The plan is in the project history; each phase adds one capability.
 
 | Service | Shows | Phase |
 | --- | --- | --- |
@@ -10,7 +10,7 @@ A fictional bank that shows what a personal agent can do with the Personal Agent
 | Accounts and balances | Sign-in (Direct and Device) and scopes | 2, done |
 | Transactions | A second scope, separate from balances | 2, done |
 | Payments | A human approving a sensitive operation | 3, done |
-| Support chat | A Company Agent, with handoff to staff | 4 |
+| Support chat | A Company Agent, with handoff to staff | 4, done |
 | Online banking pages | An agent's browser joining its Session | 5 |
 | Blocking (all of the above) | Excluded tasks, and blocking a specific agent | 6 |
 
@@ -33,6 +33,8 @@ SIGNIN_SCOPES=accounts:read transactions:read
 SCOPED_TOOL=list_accounts
 ```
 
+To try the chat, set `CHAT_QUESTION` (what the anonymous chat step asks, for example `What are your savings rates?`) and `CHAT_ACCOUNT_QUESTION` (asked after sign-in, default `What are my balances?`) on the Inspector.
+
 Payments need `payments:write` too, and the Inspector's operation steps need to know what to propose. Give it a list to choose between, and a standing permission so it can show the difference:
 
 ```
@@ -47,6 +49,9 @@ The demo customer Ada has the saved payees `pye_ada_rent`, `pye_ada_energy` and 
 ## Decisions
 
 - **Direct and Device Sign-In only.** Mediated Sign-In has the agent type the customer's password. A bank should not demonstrate that, so it is off.
+- **The support agent is scripted.** It reads and explains: rates and branches for anyone, balances and recent transactions once the customer has signed in, using the caller's own scopes. Asked for balances without a sign-in, it asks for the `accounts:read` scope and shows nothing. It never moves money in a chat: a payment is an operation the customer approves, and a chat message is never an approval. Asking for a person hands the conversation to staff. Switching it to Claude is a configuration change (an Anthropic API key).
+- **Staff take handoffs at `/staff?key=…`.** The key is the `POPPY_STAFF_KEY` environment variable. Without it the page does not exist in production. Staff can take a conversation, reply as "Nova Bank support", and hand it back.
+- **One Poppyseed instance and one set of bank data per process.** In a production build a page and an API route can be bundled separately, each with its own copy of a module. Without a single shared instance, a conversation started through the API was missing from the staff page, and a payment made through the API was missing from the payments page.
 - **Two kinds of payment, by size.** A payment to a saved payee up to $250.00, or a transfer between the customer's own accounts up to $5,000.00, may be confirmed by an agent under a standing permission. Above those limits the operation sets `user_approval_required`, and the bank refuses a confirmation that claims a standing permission. Only one the person approved (`approved_by: user`) is accepted.
 - **Proposing a payment reveals whether the account can cover it.** A token with only `payments:write` could therefore learn roughly what an account holds by proposing different amounts, without `accounts:read`. The scope's description says so, so the customer sees it when granting the scope. Nothing moves until a proposal is confirmed.
 - **An agent can only pay saved payees.** There is no tool to add one. Adding a payee is a task the bank will not offer to agents (phase 6).

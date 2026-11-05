@@ -39,13 +39,16 @@ Scope today: one target site (our own Railway deployment), one agent identity, o
 | session | JWT-bearer grant with a client assertion, DPoP-bound | no |
 | tools | MCP `tools/list` with a token bound to the MCP resource | no |
 | call | a public tool over MCP (default `search_flights`) | no |
+| chat | a question to the company's agent, answered from the events (skipped if the company has none) | no |
 | signin | Device Sign-In: link and code shown, the inspector polls | yes: approves on the company's page |
 | account | a scoped tool over the HTTP API (default `my_trips`) | no |
+| chat-account | a question about the account, in a new conversation with the signed-in token | no |
+| handoff | asks for a person and leaves the conversation open for staff | no |
 | propose | an action tool returns an operation (default `book_flight`) | no |
 | approve | the person approves or declines; the agent confirms or cancels | yes: in the UI. With `STANDING_PERMISSION=1`, not for an operation the company lets an agent do |
 | signout | revokes the Account Token | no |
 
-The first four run with "Run journey". All nine run with "Run with sign-in and operations".
+The first five run with "Run journey". All eleven run with "Run with sign-in and operations".
 
 **Fault tests** are a separate run: discover, a valid control request, then the broken request or requests. A fault passes when the company refuses it (400, 401 or 403). A request it must refuse but accepts fails the run, and so does a 5xx, which is the company failing and not refusing.
 
@@ -113,7 +116,10 @@ The page asks `/api/runs/:id/poll?from=N` for the events after the last one it h
 **20. A finished run shows the step that matters, not sign-out.**
 Sign-out ends every longer run, so showing the latest step hid the payment result. The page shows the step the person chose, else a failing one, else the latest step other than sign-out.
 
-**21. Hints are a static table keyed by error code.**
+**21. The chat steps read answers from events, and leave a handoff open.**
+A company's agent may answer a moment after accepting a message, so the step reads the events again from the cursor, a few times, and says so when nothing came rather than reporting silence as success. A request for a scope is shown as the company's answer, with the scope. The handoff step does not close the conversation: closing it would take it out of the staff queue before anyone could see it. The cost is that every longer run leaves one waiting conversation at the target.
+
+**22. Hints are a static table keyed by error code.**
 Advice is selected by the error code and narrowed by patterns in the description, and the description is never echoed into the page. A code the table does not know gets no hint rather than a guess.
 
 ## Deployment
@@ -168,7 +174,7 @@ In rough order. The first group is what is needed before this is useful on the d
 4. Connect the GitHub repo to the Railway services so pushes deploy.
 
 **Debugging value**
-5. ~~**Error hints**~~ Done (decision 21).
+5. ~~**Error hints**~~ Done (decision 22).
 6. ~~**JWT decoder**~~ Done, without needing a reveal path (decision 16).
 7. ~~**Fault injection**~~ Done: 18 faults (decision 18). Still to add: faults at the MCP and tool endpoints, such as a missing scope, a `Bearer` scheme and a token for another service.
 8. **Show inbound requests:** record the target's fetches of `client.json` and the JWKS.

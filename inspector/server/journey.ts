@@ -2,6 +2,7 @@ import { PATHS } from "poppyseed/paths";
 import { PapError, readBody, type Discovery, type Operation, type TestAgent, type TokenResponse } from "poppyseed/agent";
 import type { ProtocolEvent } from "../shared/events.ts";
 import { approveOperation } from "./approval.ts";
+import { askForPerson, askSupport } from "./chat.ts";
 
 interface Tool {
 	name: string;
@@ -18,6 +19,8 @@ export interface JourneyOptions {
 	setStep: (id: string) => void;
 	/** A tool anyone can call, for the "call a public tool" step. Skipped when the site has no such tool. */
 	publicTool?: Call;
+	/** What to say to the company's agent. Without it, or when the company has none, the chat steps are skipped. */
+	chat?: { hello: string; account: string };
 	/** Set to run the sign-in and operation steps: they need a person to approve in their own browser. */
 	signIn?: {
 		/** Space-separated scopes to ask for. Defaults to the demo's, or every scope the site offers. */
@@ -74,7 +77,7 @@ const DEMO_SCOPES = ["trips:read", "trips:write"];
  * Each step reports what it did; a failing step stops the run, since later steps depend on it.
  */
 export async function runJourney(agent: TestAgent, options: JourneyOptions): Promise<boolean> {
-	const { target, emit, setStep, publicTool, signIn, decide, signal } = options;
+	const { target, emit, setStep, publicTool, chat, signIn, decide, signal } = options;
 	const step = makeStep(emit, setStep);
 	const need = <T>(value: T | undefined, what: string): T => {
 		if (value === undefined) throw new Error(`no ${what}`);
@@ -88,6 +91,7 @@ export async function runJourney(agent: TestAgent, options: JourneyOptions): Pro
 	let offers: Offer[] = [];
 	let signedIn: TokenResponse | undefined;
 	let operation: Operation | undefined;
+	let conversationId: string | undefined;
 	const hasTool = (name: string) => tools.some((t) => t.name === name);
 
 	/** A signed-in call to one of the site's tools over its HTTP API. */
@@ -144,6 +148,15 @@ export async function runJourney(agent: TestAgent, options: JourneyOptions): Pro
 				if (result.isError) throw new Error(`${publicTool.name} returned an error: ${JSON.stringify(result.content)}`);
 				offers = result.structuredContent?.offers ?? [];
 				return [`${publicTool.name}(${JSON.stringify(publicTool.arguments)})`, JSON.stringify(result.structuredContent ?? result.content ?? result).slice(0, 300)];
+			},
+		],
+		[
+			"chat",
+			"Ask the company's agent",
+			async () => {
+				if (!chat || !agent.endpoints.conversations) return "skipped";
+				const talk = await askSupport(agent, need(session, "Session").access_token, chat.hello);
+				return [...talk.lines, `conversation ${talk.conversationId}: ${talk.status}, handled by ${talk.responder}`];
 			},
 		],
 	];
@@ -204,6 +217,21 @@ export async function runJourney(agent: TestAgent, options: JourneyOptions): Pro
 					const body = await callTool(signIn.scopedTool.name, signIn.scopedTool.arguments);
 					return [`${signIn.scopedTool.name}(${JSON.stringify(signIn.scopedTool.arguments)})`, JSON.stringify(body).slice(0, 300)];
 				},
+			],
+			[
+				"chat-account",
+				"Ask the company's agent about your account",
+				async () => {
+					if (!chat || !agent.endpoints.conversations) return "skipped";
+					const talk = await askSupport(agent, need(signedIn, "signed-in Session").access_token, chat.account);
+					conversationId = talk.conversationId;
+					return [...talk.lines, `conversation ${talk.conversationId}: ${talk.status}, handled by ${talk.responder}`];
+				},
+			],
+			[
+				"handoff",
+				"Ask for a person",
+				async () => (conversationId ? askForPerson(agent, need(signedIn, "signed-in Session").access_token, conversationId) : "skipped"),
 			],
 			[
 				"propose",
