@@ -24,6 +24,8 @@ Scope today: one target site (our own Railway deployment), one agent identity, o
 - **`server/index.ts`**: the HTTP server. Routes for the agent's public identity, Curity login, the run API, and the built UI. Sessions, runs and login state live in process memory.
 - **`server/journey.ts`**: the steps. Each step reports a title and summary; a failing step stops the run. Sign-out always runs if a sign-in happened.
 - **`server/capture.ts`**: wraps the agent's `fetch`, so every request it makes is reported as an `http` event tagged with the current step. It redacts credentials before anything leaves the server.
+- **`server/hints.ts`**, **`server/jwt.ts`**: what the capture adds to an exchange. Hints are likely causes for a refusal; the decoder reads the JWTs in a request and checks them.
+- **`server/faults.ts`**: the 18 deliberately broken requests, and the run that sends them.
 - **`server/oidc.ts`**: the OpenID Connect client (authorization code with PKCE) and the allow-list.
 - **`shared/events.ts`**: the one event type shared by backend and UI. A run is a list of these.
 - **`src/`**: the React UI. It folds events into steps, renders exchanges, and shows a panel when the run is waiting for a person.
@@ -44,6 +46,8 @@ Scope today: one target site (our own Railway deployment), one agent identity, o
 | signout | revokes the Account Token | no |
 
 The first four run with "Run journey". All nine run with "Run with sign-in and operations".
+
+**Fault tests** are a separate run: discover, a valid control request, then the broken request or requests. A fault passes when the company refuses it (400, 401 or 403). A request it must refuse but accepts fails the run, and so does a 5xx, which is the company failing and not refusing.
 
 ## Decisions
 
@@ -94,6 +98,18 @@ Signed-in tool calls go to `/poppy/tools/<name>` (from `poppyseed/paths`), as th
 **15. Defaults are the Poppy Travel demo's, and a step is skipped when the target lacks the tool.**
 `search_flights`, `my_trips`, `book_flight` are overridable by environment variable. A site with other tools sees those steps skipped, not failed.
 
+**16. The token decoder sends claims, never tokens.**
+The decoder runs on the server and the browser receives each token's header, its claims and the checks, never the signature. An assertion without its signature cannot be replayed, so reading one exposes no credential. Private members of a key in a header are masked too (a deliberately leaked key in a fault test would otherwise be relayed). This replaces the earlier plan for a per-value reveal of redacted tokens: nothing needs revealing. *Alternative: send the token and decode in the browser. Rejected: the credential would be in the browser, and the global reveal switch was already the only thing standing between it and the screen.*
+
+**17. Checks state the rule they enforce, and which of them are Poppyseed's own.**
+Assertion rules (audience is the issuer as one string, lifetime at most 300 s, no embedded key, `jti` of 128 bits) come from spec 4.2 and the library's verification code; the DPoP checks are RFC 9449. The ±90 s `iat` window is Poppyseed's own choice and is labelled so. Until discovery has found the issuer, `aud` is compared with the request's origin and reported as information, not failure. The decoder checks what the agent *sent*; it cannot say whether a signature verified.
+
+**18. A fault test starts with a control request, and a refusal must be a 4xx.**
+Without a control, a refusal could be caused by a broken setup and the fault would look like it worked. A 5xx fails the run: the company crashed, it did not refuse. Replays send the same request twice and expect it to be accepted once, then refused. Faults reuse `TestAgent`'s own options for bending a request, so there is no second implementation to drift.
+
+**19. Hints are a static table keyed by error code.**
+Advice is selected by the error code and narrowed by patterns in the description, and the description is never echoed into the page. A code the table does not know gets no hint rather than a guess.
+
 ## Deployment
 
 Railway project `poppyseed`, three services built from the fork (`SecSimply/poppyseed`) with Railpack:
@@ -117,6 +133,8 @@ Tested:
 - `pnpm verify` for the whole repo, and `pnpm audit` (clean).
 
 Not tested:
+- **Faults against production.** All 18 were run against the demo site locally (every one refused, controls accepted) and are covered by unit tests with a stand-in agent, but have not been run against the deployed site.
+- **Hints, decoder and fault picker in a real browser.** They are covered by component tests only.
 - **Real Curity, as automated tests.** A login against the real provider and the UI in a browser were checked by hand and worked; nothing automated covers them.
 - **The React UI in a browser.** It typechecks and builds; it has not been seen rendering, including the login screen and the action panel.
 - **An operation that requires the person's own approval** (the demo only does this above $1,000).
@@ -129,6 +147,8 @@ Not tested:
 - Sign-out ends the inspector's session, not the Curity session.
 - Request and response bodies are cut at 64 KB.
 - Polling for device approval produces one exchange per poll.
+- Fault tests and checks cover the token endpoint and one MCP call; they say nothing about a site's other endpoints.
+- Hints are static advice and can be wrong for a site that words its errors differently.
 - Requests the target makes to the agent's metadata URLs (`client.json`, JWKS) are not shown, which is a blind spot when debugging identity problems.
 
 ## Next steps
@@ -142,9 +162,9 @@ In rough order. The first group is what is needed before this is useful on the d
 4. Connect the GitHub repo to the Railway services so pushes deploy.
 
 **Debugging value**
-5. **JWT decoder:** decode the client assertion, DPoP proof and access token claims, with checks for `htu`, `htm`, `iat`, `jti`, `aud`. This needs a reveal path for the redacted values (an explicit per-value reveal, not a global switch).
-6. **Fault injection:** `TestAgent` can bend each step (replayed proof, wrong `aud`, expired assertion, missing scope). Add toggles and show how the company refuses.
-7. **Error hints:** map OAuth and DPoP error codes to likely causes.
+5. ~~**Error hints**~~ Done (decision 19).
+6. ~~**JWT decoder**~~ Done, without needing a reveal path (decision 16).
+7. ~~**Fault injection**~~ Done: 18 faults (decision 18). Still to add: faults at the MCP and tool endpoints, such as a missing scope, a `Bearer` scheme and a token for another service.
 8. **Show inbound requests:** record the target's fetches of `client.json` and the JWKS.
 9. **Run export and import** as JSON, and copy-as-curl for an exchange.
 

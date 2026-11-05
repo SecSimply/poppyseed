@@ -8,11 +8,11 @@ A protocol debugger for developers. It runs a real Personal Agent (`poppyseed/ag
 
 | | |
 | --- | --- |
-| Built and tested locally | The anonymous journey, device sign-in, scoped call, operation propose/approve/decline, sign-out; sign in with Curity (OIDC + PKCE) against a mock provider. |
-| Deployed on Railway | Yes: the full journey and the Curity login. `INSPECTOR_TOKEN` is still set as a fallback. |
+| Built and tested locally | The anonymous journey, device sign-in, scoped call, operation propose/approve/decline, sign-out; sign in with Curity (OIDC + PKCE) against a mock provider; error hints, the JWT decoder and 18 fault tests against the demo site. |
+| Deployed on Railway | The full journey and the Curity login; `INSPECTOR_TOKEN` has been removed. The hints, JWT decoder and fault tests are not deployed yet. |
 | Verified by hand | Curity login and the UI in a browser, reported working by the owner. Not recorded as automated tests. |
 
-**Next:** register the client in Curity and redeploy; look at the UI in a browser; then the JWT decoder and fault injection. The full list is in [ARCHITECTURE.md](ARCHITECTURE.md#next-steps).
+**Next:** deploy the debugging features, then show the target's requests for the agent's metadata, export runs, and Direct Sign-In. The full list is in [ARCHITECTURE.md](ARCHITECTURE.md#next-steps).
 
 Steps:
 
@@ -25,6 +25,12 @@ Steps:
    - **Sign out**: revokes the Account Token, whether or not the journey finished (spec 4.9).
 
 A failing step stops the run and shows the company's error.
+
+### Debugging aids
+
+- **Likely causes.** When the target refuses a request, the exchange shows what to check, keyed on the OAuth or DPoP error code and narrowed by its description (a wrong `htu`, a replayed `jti`, an expired token).
+- **Token decoder.** Every DPoP proof and client or session assertion the agent sends is decoded beside its request, with its header and claims, and checked against the rules the company applies: `typ`, `htm`, `htu`, `iat`, `jti`, `ath`; `aud`, lifetime, no embedded key. Failing checks open by themselves. Only header and claims are sent to the browser: the signature, which makes a token usable, stays on the server. Access tokens are opaque, so they are not decoded.
+- **Fault tests.** "Fault test" sends one deliberately broken request, such as an expired assertion, a proof for another URL, a replayed `jti` or a token used with another key, and passes when the target refuses it. A valid control request goes first, so a refusal is the fault's doing. A fault the target *accepts* fails the run. There are 18; the list is in `server/faults.ts`. They send invalid requests to `TARGET_URL`, so point the inspector at your own site.
 
 ```
 React UI  ⇄ SSE ⇄  backend (TestAgent; serves /agent/client.json and /agent/jwks.json)  ⇄  TARGET_URL
@@ -72,8 +78,8 @@ pnpm --filter poppyseed-inspector build && pnpm --filter poppyseed-inspector sta
 
 A local run needs a target that accepts loopback agents (a Poppyseed site in development). Run one instance only: keys, runs and login sessions live in the process, so a restart signs everyone out.
 
-To try the sign-in locally without Curity, run `scripts/mock-oidc.ts` (it signs in anyone as `dev@example.com`, so loopback only; see its header). `scripts/e2e-local.ts` drives the whole journey against the demo site, playing the demo's test traveler as the person who approves. `pnpm --filter poppyseed-inspector test` covers the OIDC flow against a mock provider that enforces PKCE.
+To try the sign-in locally without Curity, run `scripts/mock-oidc.ts` (it signs in anyone as `dev@example.com`, so loopback only; see its header). `scripts/faults-local.ts` runs every fault against a running inspector and exits non-zero if the target accepts one. `scripts/e2e-local.ts` drives the whole journey against the demo site, playing the demo's test traveler as the person who approves. `pnpm --filter poppyseed-inspector test` covers the OIDC flow against a mock provider that enforces PKCE.
 
 ## Not yet (later phases)
 
-Direct Sign-In, Mediated Sign-In, conversations, a JWT decoder, fault injection, run export/import, and requests the target makes to the agent's metadata URLs.
+Direct Sign-In, Mediated Sign-In, conversations, run export/import, and requests the target makes to the agent's metadata URLs.

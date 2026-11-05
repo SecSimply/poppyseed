@@ -14,7 +14,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { extname, join, normalize, resolve } from "node:path";
 import { TestAgent } from "poppyseed/agent";
 import type { AuthInfo, InspectorConfig, ProtocolEvent } from "../shared/events.ts";
-import { capture } from "./capture.ts";
+import { capture, type Knowledge } from "./capture.ts";
+import { FAULTS, faultInfo, runFault } from "./faults.ts";
 import { runJourney } from "./journey.ts";
 import { BadCallback, NotAllowed, Oidc, oidcFromEnv } from "./oidc.ts";
 
@@ -64,6 +65,9 @@ const emit = (run: Run) => (event: ProtocolEvent) => {
 	for (const listener of run.listeners) listener(event);
 };
 
+/** What the current run has found out, for the JWT checks. Reset when a run starts. */
+const knowledge: Knowledge = {};
+
 const agent = await TestAgent.create({
 	clientId,
 	clientName: "Poppy Inspector",
@@ -75,16 +79,18 @@ const agent = await TestAgent.create({
 			(event) => active && emit(active.run)(event),
 			() => active?.step ?? "",
 			redact,
+			knowledge,
 		)(input, init),
 });
 
-function startRun(signIn: boolean): Run {
+function startRun(signIn: boolean, faultId?: string): Run {
 	const run: Run = { id: randomUUID(), events: [], done: false, listeners: new Set(), abort: new AbortController() };
 	runs.set(run.id, run);
 	for (const id of [...runs.keys()].slice(0, Math.max(0, runs.size - 20))) runs.delete(id); // keep the last 20
 	active = { run, step: "" };
 	const send = emit(run);
-	send({ type: "run.start", runId: run.id, target, clientId, redacted: redact, signIn, at: Date.now() });
+	delete knowledge.issuer;
+	send({ type: "run.start", runId: run.id, target, clientId, redacted: redact, signIn, ...(faultId ? { fault: faultId } : {}), at: Date.now() });
 	const decide = () =>
 		new Promise<"approve" | "decline">((resolve) => {
 			const finish = (d: "approve" | "decline") => (clearTimeout(timer), (run.decision = undefined), resolve(d));
@@ -92,7 +98,13 @@ function startRun(signIn: boolean): Run {
 			run.abort.signal.addEventListener("abort", () => finish("decline"), { once: true });
 			run.decision = finish;
 		});
-	void runJourney(agent, { target, emit: send, setStep: (step) => active && (active.step = step), publicTool, signIn: signIn ? signInOptions : undefined, decide, signal: run.abort.signal })
+	const setStep = (step: string) => active && (active.step = step);
+	const onDiscovered = (company: { metadata: { issuer: string } }) => (knowledge.issuer = company.metadata.issuer);
+	const fault = FAULTS.find((f) => f.id === faultId);
+	void (fault
+		? runFault(agent, fault, { target, emit: send, setStep, onDiscovered })
+		: runJourney(agent, { target, emit: send, setStep, publicTool, signIn: signIn ? signInOptions : undefined, decide, signal: run.abort.signal, onDiscovered })
+	)
 		.catch((error) => {
 			send({ type: "step.end", step: active?.step ?? "", ok: false, summary: [], error: String(error), at: Date.now() });
 			return false;
@@ -233,11 +245,12 @@ createServer(async (request, response) => {
 		if (url.pathname.startsWith("/api/")) {
 			if (!authorized(request)) return json(response, 401, { error: "unauthorized" });
 			if (request.method !== "GET" && !sameOrigin(request)) return json(response, 403, { error: "cross-origin request" });
-			if (request.method === "GET" && url.pathname === "/api/config") return json(response, 200, { target, clientId, redacted: redact } satisfies InspectorConfig);
+			if (request.method === "GET" && url.pathname === "/api/config") return json(response, 200, { target, clientId, redacted: redact, faults: faultInfo } satisfies InspectorConfig);
 			if (request.method === "POST" && url.pathname === "/api/runs") {
 				if (active) return json(response, 409, { error: "a run is already in progress", runId: active.run.id });
 				const body = await readJson(request);
-				return json(response, 201, { runId: startRun(body.signIn === true).id });
+				if (body.fault !== undefined && !FAULTS.some((f) => f.id === body.fault)) return json(response, 400, { error: "unknown fault" });
+				return json(response, 201, { runId: startRun(body.signIn === true, typeof body.fault === "string" ? body.fault : undefined).id });
 			}
 			const routed = url.pathname.match(/^\/api\/runs\/([\w-]+)\/(events|decision|cancel)$/);
 			const run = routed && runs.get(routed[1]!);

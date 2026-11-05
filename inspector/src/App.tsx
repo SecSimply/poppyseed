@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AuthInfo, InspectorConfig, ProtocolEvent } from "../shared/events.ts";
+import type { AuthInfo, Check, DecodedJwt, InspectorConfig, ProtocolEvent } from "../shared/events.ts";
 import { cancelRun, decide, getAuthInfo, getConfig, logout, startRun, streamRun, Unauthorized } from "./api.ts";
 
 type Http = Extract<ProtocolEvent, { type: "http" }>;
@@ -94,6 +94,31 @@ function Headers({ headers }: { headers: Record<string, string> }) {
 	) : null;
 }
 
+const MARK: Record<Check["status"], string> = { pass: "✓", fail: "✗", info: "·" };
+
+function Jwt({ jwt }: { jwt: DecodedJwt }) {
+	const failed = jwt.checks.filter((c) => c.status === "fail").length;
+	return (
+		<details className="jwt" open={failed > 0}>
+			<summary>
+				{jwt.kind} <small>({jwt.where})</small> {failed > 0 ? <span className="status bad">{failed} check{failed === 1 ? "" : "s"} failed</span> : <span className="status">all checks pass</span>}
+			</summary>
+			<ul className="checks">
+				{jwt.checks.map((c, i) => (
+					<li key={i} className={`check ${c.status}`}>
+						<span aria-label={c.status}>{MARK[c.status]}</span> <strong>{c.name}</strong> {c.detail}
+					</li>
+				))}
+			</ul>
+			<h5>Header</h5>
+			<pre>{JSON.stringify(jwt.header, null, 2)}</pre>
+			<h5>Claims</h5>
+			<pre>{JSON.stringify(jwt.claims, null, 2)}</pre>
+			<p className="note">The signature is not shown: it stays on the server.</p>
+		</details>
+	);
+}
+
 function Exchange({ http }: { http: Http }) {
 	const status = http.response?.status;
 	const bad = http.error !== undefined || (status !== undefined && status >= 400);
@@ -117,6 +142,7 @@ function Exchange({ http }: { http: Http }) {
 					<code className="url">{http.request.url}</code>
 					<Headers headers={http.request.headers} />
 					{http.request.body && <pre>{pretty(http.request.body)}</pre>}
+					{http.jwts?.map((j, i) => <Jwt key={i} jwt={j} />)}
 				</section>
 				<section>
 					<h4>Response</h4>
@@ -124,6 +150,16 @@ function Exchange({ http }: { http: Http }) {
 					{http.response && <Headers headers={http.response.headers} />}
 					{http.response?.body && <pre>{pretty(http.response.body)}</pre>}
 					{http.response?.truncated && <p className="note">Body truncated at 64 KB.</p>}
+					{http.hints && http.hints.length > 0 && (
+						<aside className="hints" aria-label="Likely causes">
+							<h5>Likely causes</h5>
+							<ul>
+								{http.hints.map((h, i) => (
+									<li key={i}>{h}</li>
+								))}
+							</ul>
+						</aside>
+					)}
 				</section>
 			</div>
 		</details>
@@ -137,6 +173,7 @@ export function App() {
 	const [events, setEvents] = useState<ProtocolEvent[]>([]);
 	const [runId, setRunId] = useState<string>();
 	const [selected, setSelected] = useState<string>();
+	const [fault, setFault] = useState("");
 	const [running, setRunning] = useState(false);
 	const [error, setError] = useState<string>();
 	const abort = useRef<AbortController>(undefined);
@@ -169,7 +206,7 @@ export function App() {
 	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 	const run = useCallback(
-		async (signIn: boolean) => {
+		async (signIn: boolean, faultId?: string) => {
 			abort.current?.abort();
 			const controller = (abort.current = new AbortController());
 			setEvents([]);
@@ -177,7 +214,7 @@ export function App() {
 			setError(undefined);
 			setRunning(true);
 			try {
-				const id = await startRun(token, signIn);
+				const id = await startRun(token, signIn, faultId);
 				setRunId(id);
 				await streamRun(token, id, (e) => setEvents((prev) => [...prev, e]), controller.signal);
 			} catch (e) {
@@ -200,6 +237,8 @@ export function App() {
 	const steps = useMemo(() => toSteps(events), [events]);
 	const current = steps.find((s) => s.id === selected) ?? steps.at(-1);
 	const end = events.find((e) => e.type === "run.end");
+	const faultRun = events.some((e) => e.type === "run.start" && e.fault !== undefined);
+	const chosen = config?.faults.find((f) => f.id === fault);
 	const action = pendingAction(events);
 
 	return (
@@ -255,8 +294,28 @@ export function App() {
 							Run with sign-in and operations
 						</button>
 						{running && runId && <button onClick={() => void cancelRun(token, runId)}>Cancel</button>}
-						{end?.type === "run.end" && <span className={end.ok ? "pill ok" : "pill failed"}>{end.ok ? "all steps passed" : "stopped at a failing step"}</span>}
+						{end?.type === "run.end" && <span className={end.ok ? "pill ok" : "pill failed"}>{end.ok ? (faultRun ? "refused as required" : "all steps passed") : "stopped at a failing step"}</span>}
 					</div>
+
+					{config.faults.length > 0 && (
+						<div className="controls faults">
+							<label>
+								Fault test{" "}
+								<select value={fault} onChange={(e) => setFault(e.target.value)} disabled={running}>
+									<option value="">Choose a broken request…</option>
+									{config.faults.map((f) => (
+										<option key={f.id} value={f.id}>
+											{f.title}
+										</option>
+									))}
+								</select>
+							</label>
+							<button onClick={() => void run(false, fault)} disabled={running || !chosen} title="Sends a deliberately invalid request to the target">
+								Run fault test
+							</button>
+							{chosen && <span className="note">{chosen.rule}</span>}
+						</div>
+					)}
 
 					{action && <ActionPanel action={action} onDecide={answer} />}
 

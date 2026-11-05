@@ -17,7 +17,7 @@ vi.mock("./api.ts", () => ({ ...api, Unauthorized: class Unauthorized extends Er
 
 import { App } from "./App.tsx";
 
-const config: InspectorConfig = { target: "https://site.example", clientId: "https://inspector.example/agent/client.json", redacted: true } as InspectorConfig;
+const config: InspectorConfig = { target: "https://site.example", clientId: "https://inspector.example/agent/client.json", redacted: true, faults: [] };
 const signedIn: AuthInfo = { oidc: true, token: false, user: { sub: "abc", email: "dev@example.com" } };
 
 const http = (step: string, status: number): ProtocolEvent =>
@@ -134,5 +134,78 @@ describe("action panel", () => {
 		await userEvent.click(await screen.findByRole("button", { name: /sign-in and operations/i }));
 		await screen.findByText(/stopped at a failing step/i);
 		expect(screen.queryByRole("alert")).toBeNull();
+	});
+});
+
+describe("hints, tokens and fault tests", () => {
+	const refused = (extra: Record<string, unknown>) =>
+		({
+			type: "http",
+			step: "session",
+			ms: 4,
+			request: { method: "POST", url: "https://site.example/oauth/token", headers: {}, body: "x=1" },
+			response: { status: 400, headers: {}, body: JSON.stringify({ error: "invalid_dpop_proof" }) },
+			...extra,
+		}) as unknown as ProtocolEvent;
+
+	const failedRun = (http: ProtocolEvent) => [
+		{ type: "run.start", signIn: false } as unknown as ProtocolEvent,
+		{ type: "step.start", step: "session", title: "Start a Session" } as unknown as ProtocolEvent,
+		http,
+		{ type: "step.end", step: "session", ok: false, summary: [], error: "refused" } as unknown as ProtocolEvent,
+		{ type: "run.end", ok: false } as unknown as ProtocolEvent,
+	];
+
+	it("shows the likely causes next to a refusal", async () => {
+		api.getAuthInfo.mockResolvedValue(signedIn);
+		stream(failedRun(refused({ hints: ["Check that htu is the request URL."] })));
+		render(<App />);
+		await userEvent.click(await screen.findByRole("button", { name: /^run journey/i }));
+		const hints = await screen.findByLabelText("Likely causes");
+		expect(within(hints).getByText(/htu is the request URL/)).toBeTruthy();
+	});
+
+	it("opens a token with failing checks, shows what failed, and says the signature is not shown", async () => {
+		api.getAuthInfo.mockResolvedValue(signedIn);
+		const jwt = {
+			where: "DPoP header",
+			kind: "DPoP proof",
+			header: { typ: "dpop+jwt" },
+			claims: { htm: "GET" },
+			checks: [
+				{ name: "htm", status: "fail", detail: 'htm is "GET"; this request is POST' },
+				{ name: "typ", status: "pass", detail: "dpop+jwt" },
+			],
+		};
+		stream(failedRun(refused({ jwts: [jwt] })));
+		render(<App />);
+		await userEvent.click(await screen.findByRole("button", { name: /^run journey/i }));
+		expect(await screen.findByText(/1 check failed/)).toBeTruthy();
+		const details = document.querySelector("details.jwt") as HTMLDetailsElement;
+		expect(details.open).toBe(true);
+		expect(within(details).getByText(/this request is POST/)).toBeTruthy();
+		expect(within(details).getByText(/signature is not shown/i)).toBeTruthy();
+	});
+
+	it("starts a fault test with the chosen fault, and only once one is chosen", async () => {
+		api.getAuthInfo.mockResolvedValue(signedIn);
+		api.getConfig.mockResolvedValue({ ...config, faults: [{ id: "dpop-stale", title: "Stale DPoP proof", rule: "A proof's iat must be recent." }] });
+		stream([{ type: "run.start", signIn: false, fault: "dpop-stale" } as unknown as ProtocolEvent, { type: "run.end", ok: true } as unknown as ProtocolEvent]);
+		render(<App />);
+		const button = await screen.findByRole("button", { name: /run fault test/i });
+		expect((button as HTMLButtonElement).disabled).toBe(true);
+		await userEvent.selectOptions(screen.getByRole("combobox"), "dpop-stale");
+		expect(screen.getByText("A proof's iat must be recent.")).toBeTruthy();
+		await userEvent.click(button);
+		await waitFor(() => expect(api.startRun).toHaveBeenCalledWith("", false, "dpop-stale"));
+		expect(await screen.findByText("refused as required")).toBeTruthy();
+	});
+
+	it("offers no fault picker when the server lists no faults", async () => {
+		api.getAuthInfo.mockResolvedValue(signedIn);
+		api.getConfig.mockResolvedValue({ ...config, faults: [] });
+		render(<App />);
+		await screen.findByRole("button", { name: /^run journey/i });
+		expect(screen.queryByRole("button", { name: /run fault test/i })).toBeNull();
 	});
 });

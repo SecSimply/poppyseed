@@ -1,5 +1,7 @@
 import type { Fetch } from "poppyseed/agent";
 import type { HttpMessage, ProtocolEvent } from "../shared/events.ts";
+import { hintsFor } from "./hints.ts";
+import { inspectJwts } from "./jwt.ts";
 
 const MAX_BODY = 64 * 1024;
 const SECRET_HEADERS = new Set(["authorization", "dpop", "cookie", "set-cookie", "proxy-authorization"]);
@@ -47,17 +49,33 @@ async function message(headers: Headers, read: () => Promise<string>, redact: bo
 	return { headers: redact ? redactHeaders(raw) : raw, ...(body ? { body: redact ? redactBody(body, type) : body } : {}), ...(truncated ? { truncated } : {}) };
 }
 
+/** What the run has learned that the decoder needs, such as the company's issuer once discovery has found it. */
+export interface Knowledge {
+	issuer?: string;
+}
+
+const decodeRequest = async (request: Request, at: number, knowledge: Knowledge) => {
+	try {
+		const body = await request.clone().text();
+		return inspectJwts({ method: request.method, url: request.url, headers: Object.fromEntries(request.headers), body, contentType: request.headers.get("content-type") ?? "", at, issuer: knowledge.issuer });
+	} catch {
+		return [];
+	}
+};
+
 /** Wraps fetch so every request the agent makes is reported as an `http` event, tagged with the current step. */
-export function capture(inner: Fetch, emit: (event: ProtocolEvent) => void, currentStep: () => string, redact: boolean): Fetch {
+export function capture(inner: Fetch, emit: (event: ProtocolEvent) => void, currentStep: () => string, redact: boolean, knowledge: Knowledge = {}): Fetch {
 	return async (input, init) => {
 		const request = new Request(input as RequestInfo, init);
 		const started = Date.now();
 		const requestMessage = await message(request.headers, () => request.clone().text(), redact);
-		const base = { type: "http" as const, step: currentStep(), at: started, request: { method: request.method, url: request.url, ...requestMessage } };
+		const jwts = await decodeRequest(request, started, knowledge);
+		const base = { type: "http" as const, step: currentStep(), at: started, request: { method: request.method, url: request.url, ...requestMessage }, ...(jwts.length ? { jwts } : {}) };
 		try {
 			const response = await inner(input, init);
 			const responseMessage = await message(response.headers, () => response.clone().text(), redact);
-			emit({ ...base, ms: Date.now() - started, response: { status: response.status, ...responseMessage } });
+			const hints = hintsFor(response.status, responseMessage.body, responseMessage.headers);
+			emit({ ...base, ms: Date.now() - started, response: { status: response.status, ...responseMessage }, ...(hints.length ? { hints } : {}) });
 			return response;
 		} catch (error) {
 			emit({ ...base, ms: Date.now() - started, error: error instanceof Error ? error.message : String(error) });

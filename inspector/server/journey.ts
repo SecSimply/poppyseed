@@ -29,6 +29,8 @@ export interface JourneyOptions {
 	/** Resolves when the person decides in the inspector. Declines when the run is cancelled or times out. */
 	decide: () => Promise<"approve" | "decline">;
 	signal: AbortSignal;
+	/** Called once discovery has found the company, so requests can be checked against its issuer. */
+	onDiscovered?: (company: Discovery) => void;
 }
 
 const errorText = (error: unknown) => {
@@ -36,6 +38,22 @@ const errorText = (error: unknown) => {
 	const body = (error as { body?: unknown }).body;
 	return body ? `${error.message}\n${typeof body === "string" ? body : JSON.stringify(body)}` : error.message;
 };
+
+/** Runs one step: announces it, reports what it did, and says whether it passed. A thrown error fails the step. */
+export const makeStep =
+	(emit: (event: ProtocolEvent) => void, setStep: (id: string) => void) =>
+	async (id: string, title: string, body: () => Promise<string[] | "skipped">): Promise<boolean> => {
+		setStep(id);
+		emit({ type: "step.start", step: id, title, at: Date.now() });
+		try {
+			const result = await body();
+			emit({ type: "step.end", step: id, ok: true, summary: result === "skipped" ? ["skipped"] : result, at: Date.now() });
+			return true;
+		} catch (error) {
+			emit({ type: "step.end", step: id, ok: false, summary: [], error: errorText(error), at: Date.now() });
+			return false;
+		}
+	};
 
 const sleep = (ms: number, signal: AbortSignal) =>
 	new Promise<void>((resolve, reject) => {
@@ -55,18 +73,7 @@ const TERMINAL: Operation["state"][] = ["succeeded", "failed", "cancelled", "exp
  */
 export async function runJourney(agent: TestAgent, options: JourneyOptions): Promise<boolean> {
 	const { target, emit, setStep, publicTool, signIn, decide, signal } = options;
-	const step = async (id: string, title: string, body: () => Promise<string[] | "skipped">): Promise<boolean> => {
-		setStep(id);
-		emit({ type: "step.start", step: id, title, at: Date.now() });
-		try {
-			const result = await body();
-			emit({ type: "step.end", step: id, ok: true, summary: result === "skipped" ? ["skipped"] : result, at: Date.now() });
-			return true;
-		} catch (error) {
-			emit({ type: "step.end", step: id, ok: false, summary: [], error: errorText(error), at: Date.now() });
-			return false;
-		}
-	};
+	const step = makeStep(emit, setStep);
 	const need = <T>(value: T | undefined, what: string): T => {
 		if (value === undefined) throw new Error(`no ${what}`);
 		return value;
@@ -96,6 +103,7 @@ export async function runJourney(agent: TestAgent, options: JourneyOptions): Pro
 			"Discover the company",
 			async () => {
 				company = await agent.discover(target);
+				options.onDiscovered?.(company);
 				return [
 					`organization: ${company.poppy.organization.name} (${company.poppy.organization.domain})`,
 					`protocol_version: ${company.poppy.protocol_version}`,
