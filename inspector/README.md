@@ -9,8 +9,8 @@ A protocol debugger for developers. It runs a real Personal Agent (`poppyseed/ag
 | | |
 | --- | --- |
 | Built and tested locally | The anonymous journey, device sign-in, scoped call, operation propose/approve/decline, sign-out; sign in with Curity (OIDC + PKCE) against a mock provider. |
-| Deployed on Railway | The earlier version only: anonymous journey, token login. The steps and login above are not deployed yet. |
-| Not yet verified | A real Curity instance; the UI rendered in a browser. |
+| Deployed on Railway | Yes: the full journey and the Curity login. `INSPECTOR_TOKEN` is still set as a fallback. |
+| Verified by hand | Curity login and the UI in a browser, reported working by the owner. Not recorded as automated tests. |
 
 **Next:** register the client in Curity and redeploy; look at the UI in a browser; then the JWT decoder and fault injection. The full list is in [ARCHITECTURE.md](ARCHITECTURE.md#next-steps).
 

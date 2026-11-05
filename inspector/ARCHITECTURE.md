@@ -102,11 +102,11 @@ Railway project `poppyseed`, three services built from the fork (`SecSimply/popp
 | --- | --- | --- |
 | `poppyseed-site` | the demo site, production settings | `memoryStore()`: one instance, state resets on restart |
 | `poppyseed-staging` | the same code with `POPPYSEED_ALLOW_LOOPBACK_AGENTS=1` | for running `poppyseed check` from inside the container; do not point anything real at it |
-| `poppyseed-inspector` | this tool | targets `poppyseed-site`; token login |
+| `poppyseed-inspector` | this tool | targets `poppyseed-site`; Curity login, token fallback |
 
 Build and start commands are set as `RAILPACK_BUILD_CMD` and `RAILPACK_START_CMD` variables: Railpack fails at detection on the monorepo root otherwise. Deploys so far have been `railway up` from a local clone, because linking the GitHub repo from the CLI returned "Unauthorized"; pushes do not redeploy until the repo is connected in the dashboard.
 
-**State at the time of writing:** the code described here is committed. The deployed inspector is the earlier version (phase 1 steps, token login). The sign-in and operations steps and the Curity login have not been deployed.
+**State at the time of writing:** the code described here is committed and deployed with `railway up` from a local clone. The Curity login uses a confidential client (`client_secret_basic`) at a publicly trusted domain, with an email allow-list. A self-signed certificate on Curity's raw Railway TCP address would have broken login, because the inspector verifies TLS and that is not relaxed. `INSPECTOR_TOKEN` is still set; unset it to make Curity the only way in.
 
 ## What is tested, and what is not
 
@@ -117,7 +117,7 @@ Tested:
 - `pnpm verify` for the whole repo, and `pnpm audit` (clean).
 
 Not tested:
-- **Real Curity.** Claims, issuer format and client registration are unverified.
+- **Real Curity, as automated tests.** A login against the real provider and the UI in a browser were checked by hand and worked; nothing automated covers them.
 - **The React UI in a browser.** It typechecks and builds; it has not been seen rendering, including the login screen and the action panel.
 - **An operation that requires the person's own approval** (the demo only does this above $1,000).
 - **Multiple simultaneous users** and long-lived streams behind Railway's proxy (a keep-alive comment is sent every 20 s for this).
