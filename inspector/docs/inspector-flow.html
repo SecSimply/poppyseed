@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How the Inspector Works</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one column. A short intro, then two parts. Each part is a sequence diagram followed by one card per step. */
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --fg: #13202c;
+  --muted: #526071;
+  --line: #d7dde5;
+  --person: #b4540a;
+  --inspector: #2c55d4;
+  --idp: #7a3fd1;
+  --company: #0b7a6e;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1620; --surface: #172230; --fg: #e8edf3; --muted: #9eacbc; --line: #2b3847;
+    --person: #f2a566; --inspector: #93abff; --idp: #c3a2ff; --company: #55d6c3;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1620; --surface: #172230; --fg: #e8edf3; --muted: #9eacbc; --line: #2b3847;
+  --person: #f2a566; --inspector: #93abff; --idp: #c3a2ff; --company: #55d6c3;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 18px/1.55 var(--font-body);
+  padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 72px;
+}
+main { max-width: 1040px; margin: 0 auto; display: grid; gap: 64px; }
+h1, h2, h3 { font-family: var(--font-display); line-height: 1.12; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+h1 { font-size: clamp(2.2rem, 5vw, 3.4rem); }
+h2 { font-size: clamp(1.55rem, 3vw, 2.1rem); }
+h3 { font-size: 1.2rem; }
+p { margin: 0; }
+.lede { font-size: 1.2rem; color: var(--muted); max-width: 62ch; margin-top: 16px; }
+.eyebrow { font: 500 0.78rem var(--font-mono); text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 12px; }
+section { display: grid; gap: 28px; min-width: 0; }
+.head { max-width: 66ch; }
+.head p { color: var(--muted); margin-top: 12px; }
+
+/* The four parties, each with the colour it carries through both diagrams. */
+.cast { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; list-style: none; padding: 0; margin: 0; }
+.cast li { background: var(--surface); border: 1px solid var(--line); border-top: 4px solid var(--c); border-radius: 10px; padding: 16px 18px; min-width: 0; }
+.cast strong { display: block; font: 700 1.1rem var(--font-display); color: var(--c); margin-bottom: 4px; }
+.cast span { color: var(--muted); font-size: 0.98rem; }
+.p { --c: var(--person); } .i { --c: var(--inspector); } .d { --c: var(--idp); } .c { --c: var(--company); }
+
+/* Three ideas to keep. */
+.ideas { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0; border-block: 1px solid var(--line); }
+.ideas > div { padding: 22px 24px 22px 0; min-width: 0; }
+.ideas > div + div { padding-left: 24px; border-left: 1px solid var(--line); }
+.ideas h3 { margin-bottom: 8px; }
+.ideas p { color: var(--muted); font-size: 1rem; }
+@media (max-width: 760px) { .ideas > div, .ideas > div + div { padding: 18px 0; border-left: 0; } .ideas > div + div { border-top: 1px solid var(--line); } }
+
+/* Diagrams */
+figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; overflow-x: auto; }
+figure svg { display: block; width: 100%; min-width: 760px; height: auto; font-family: var(--font-body); }
+.lane-box { fill: var(--surface); stroke-width: 2; }
+.lane-name { font: 700 16px var(--font-display); text-anchor: middle; }
+.lane-sub { font-size: 12.5px; fill: var(--muted); text-anchor: middle; }
+.life { stroke: var(--line); stroke-width: 1.5; stroke-dasharray: 3 5; }
+.msg-label { font-size: 14px; fill: var(--fg); text-anchor: middle; paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+.msg-line { stroke-width: 2.2; fill: none; }
+.msg-line.back { stroke-dasharray: 7 5; }
+.badge { fill: var(--fg); }
+.badge-text { fill: var(--surface); font: 700 13px var(--font-display); text-anchor: middle; dominant-baseline: central; }
+.note-box { stroke-width: 1.5; }
+.note-text { font-size: 13.5px; fill: var(--fg); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--muted); font-size: 0.92rem; margin-top: 10px; }
+.legend span::before { content: ""; display: inline-block; width: 28px; margin-right: 8px; vertical-align: middle; border-top: 2.2px solid var(--muted); }
+.legend span.dash::before { border-top-style: dashed; }
+.pp-person { stroke: var(--person); } .pp-inspector { stroke: var(--inspector); } .pp-idp { stroke: var(--idp); } .pp-company { stroke: var(--company); }
+.h-person { fill: var(--person); } .h-inspector { fill: var(--inspector); } .h-idp { fill: var(--idp); } .h-company { fill: var(--company); }
+
+/* Step cards. Four cards sit two by two; three sit in a row. */
+.steps.two { grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; list-style: none; padding: 0; margin: 0; }
+.step { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px 22px; display: grid; gap: 14px; align-content: start; min-width: 0; }
+.step header { display: flex; gap: 14px; align-items: center; }
+.mark { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--fg); color: var(--surface); display: grid; place-items: center; font: 700 1rem var(--font-display); }
+.step dl { margin: 0; display: grid; gap: 12px; }
+.step dt { font: 500 0.72rem var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 2px; }
+.step dd { margin: 0; font-size: 1rem; }
+code { font: 500 0.85em var(--font-mono); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; overflow-wrap: anywhere; }
+
+.screen { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--inspector); border-radius: 10px; padding: 18px 22px; display: grid; gap: 6px; }
+.screen p { color: var(--muted); }
+.glossary { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 40px; margin: 0; }
+.glossary div { padding: 12px 0; border-top: 1px solid var(--line); min-width: 0; }
+.glossary dt { font-weight: 600; }
+.glossary dd { margin: 2px 0 0; color: var(--muted); font-size: 1rem; }
+footer { color: var(--muted); font-size: 0.92rem; border-top: 1px solid var(--line); padding-top: 18px; max-width: 70ch; }
+:focus-visible { outline: 3px solid var(--inspector); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <p class="eyebrow">Poppy Inspector</p>
+  <h1>How the Inspector works</h1>
+  <p class="lede">The Inspector is a testing tool. It plays the part of an AI agent, introduces itself to a company's website, and shows every message that passes between them. This page follows one session, from signing in to the end of the standard test run.</p>
+</header>
+
+<section aria-labelledby="who">
+  <div class="head"><h2 id="who">Who is involved</h2></div>
+  <ul class="cast">
+    <li class="p"><strong>You</strong><span>Sign in, press Run journey and read the results.</span></li>
+    <li class="i"><strong>The Inspector</strong><span>Our tool. It runs a real AI agent and records each exchange.</span></li>
+    <li class="d"><strong>Identity provider</strong><span>Curity. It checks who you are, so the Inspector never handles your password.</span></li>
+    <li class="c"><strong>Company site</strong><span>The website under test, a demo travel company. It decides whether to trust the agent.</span></li>
+  </ul>
+  <div class="ideas">
+    <div><h3>Passwords stay put</h3><p>Your password goes only to the identity provider. The Inspector receives a signed statement that you have signed in.</p></div>
+    <div><h3>Every request is signed</h3><p>Each request carries a signature and is tied to a key. A copied token is useless without the key that goes with it.</p></div>
+    <div><h3>You see it all</h3><p>Each exchange appears on screen. Tokens and signatures are masked on the server before anything reaches the browser.</p></div>
+  </div>
+</section>
+
+<section aria-labelledby="part1">
+  <div class="head">
+    <p class="eyebrow">Part 1</p>
+    <h2 id="part1">Signing in to the Inspector</h2>
+    <p>Only people on a short approved list can use the Inspector, because it sends live requests to a real site. Sign-in uses OpenID Connect with PKCE, the standard way to sign in through an identity provider.</p>
+  </div>
+  <figure>
+    <svg viewBox="0 0 960 488" role="img" aria-label="Sequence of the sign-in: the person opens the Inspector, is sent to the identity provider, signs in, and the Inspector swaps a one-time code for a signed identity statement and checks it."><defs><marker id="h-person-personinspectoridp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9 z" class="h-person"/></marker><marker id="h-inspector-personinspectoridp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9 z" class="h-inspector"/></marker><marker id="h-idp-personinspectoridp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9 z" class="h-idp"/></marker></defs><line class="life" x1="160" y1="64" x2="160" y2="480"/><rect class="lane-box pp-person" x="64" y="8" width="192" height="54" rx="9"/><text class="lane-name h-person" x="160" y="31">You</text><text class="lane-sub" x="160" y="50">the person</text><line class="life" x1="480" y1="64" x2="480" y2="480"/><rect class="lane-box pp-inspector" x="384" y="8" width="192" height="54" rx="9"/><text class="lane-name h-inspector" x="480" y="31">The Inspector</text><text class="lane-sub" x="480" y="50">our testing tool</text><line class="life" x1="800" y1="64" x2="800" y2="480"/><rect class="lane-box pp-idp" x="704" y="8" width="192" height="54" rx="9"/><text class="lane-name h-idp" x="800" y="31">Identity provider</text><text class="lane-sub" x="800" y="50">Curity</text><line class="msg-line pp-person" x1="165" y1="96" x2="475" y2="96" marker-end="url(#h-person-personinspectoridp)"/><text class="msg-label" x="320" y="87">Open the Inspector</text><circle class="badge" cx="30" cy="96" r="13"/><text class="badge-text" x="30" y="96.5">A</text><line class="msg-line pp-inspector" x1="485" y1="144" x2="795" y2="144" marker-end="url(#h-inspector-personinspectoridp)"/><text class="msg-label" x="640" y="135">Send this person to sign in, with a challenge</text><line class="msg-line pp-person" x1="165" y1="192" x2="795" y2="192" marker-end="url(#h-person-personinspectoridp)"/><text class="msg-label" x="480" y="183">You sign in. Your password goes only here</text><circle class="badge" cx="30" cy="192" r="13"/><text class="badge-text" x="30" y="192.5">B</text><line class="msg-line pp-idp back" x1="795" y1="240" x2="485" y2="240" marker-end="url(#h-idp-personinspectoridp)"/><text class="msg-label" x="640" y="231">One-time code, passed through your browser</text><line class="msg-line pp-inspector" x1="485" y1="288" x2="795" y2="288" marker-end="url(#h-inspector-personinspectoridp)"/><text class="msg-label" x="640" y="279">Swap the code: client secret + proof</text><circle class="badge" cx="30" cy="288" r="13"/><text class="badge-text" x="30" y="288.5">C</text><line class="msg-line pp-idp back" x1="795" y1="336" x2="485" y2="336" marker-end="url(#h-idp-personinspectoridp)"/><text class="msg-label" x="640" y="327">Signed statement of who you are</text><rect class="note-box pp-inspector" x="310" y="368" width="340" height="56" rx="8" style="fill:color-mix(in srgb, var(--inspector) 12%, var(--surface))"/><text class="note-text" x="324" y="388">Checks the signature, the audience, freshness</text><text class="note-text" x="324" y="408">and that your email is on the approved list.</text><line class="msg-line pp-inspector back" x1="475" y1="454" x2="165" y2="454" marker-end="url(#h-inspector-personinspectoridp)"/><text class="msg-label" x="320" y="445">You are in: a session cookie, no tokens</text></svg>
+    <div class="legend"><span>A message</span><span class="dash">A reply</span></div>
+  </figure>
+  <ol class="steps">
+    <li class="step">
+      <header><span class="mark">A</span><h3>Start the sign-in</h3></header>
+      <dl>
+        <div><dt>What happens</dt><dd>You open the Inspector. It sends your browser to the identity provider, along with a challenge it has just made up.</dd></div>
+        <div><dt>What is sent</dt><dd>The Inspector's name, a fingerprint of a random secret it keeps to itself (the PKCE challenge), and a random reference for this attempt.</dd></div>
+        <div><dt>Why it is safe</dt><dd>The fingerprint cannot be turned back into the secret. Only the Inspector can later prove it started this sign-in.</dd></div>
+      </dl>
+    </li>
+    <li class="step">
+      <header><span class="mark">B</span><h3>You sign in</h3></header>
+      <dl>
+        <div><dt>What happens</dt><dd>You enter your credentials on the identity provider's own page. It sends your browser back to the Inspector with a one-time code.</dd></div>
+        <div><dt>What is sent</dt><dd>Your password goes to the identity provider and nowhere else. The code comes back through your browser.</dd></div>
+        <div><dt>Why it is safe</dt><dd>The code works once and means nothing on its own. Someone who copies it cannot use it without the Inspector's secret.</dd></div>
+      </dl>
+    </li>
+    <li class="step">
+      <header><span class="mark">C</span><h3>Swap the code and check it</h3></header>
+      <dl>
+        <div><dt>What happens</dt><dd>The Inspector's server hands the code, its own client secret and the original random secret to the identity provider. It gets back a signed statement of who you are.</dd></div>
+        <div><dt>What is checked</dt><dd>The statement is signed by the identity provider, made for the Inspector, still fresh, and from this same sign-in attempt. Your email must be on the approved list.</dd></div>
+        <div><dt>What you get</dt><dd>A session cookie that the browser cannot read from page code. No tokens are kept in the browser.</dd></div>
+      </dl>
+    </li>
+  </ol>
+</section>
+
+<section aria-labelledby="part2">
+  <div class="head">
+    <p class="eyebrow">Part 2</p>
+    <h2 id="part2">The test run</h2>
+    <p>Run journey performs four steps against the company site. Each step builds on the one before. If a step fails, the run stops and shows the company's own error.</p>
+  </div>
+  <figure>
+    <svg viewBox="0 0 960 658" role="img" aria-label="Sequence of the test run: the Inspector discovers the company, starts a session, lists the tools, calls a public tool and shows every exchange to the person."><defs><marker id="h-person-personinspectorcompany" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9 z" class="h-person"/></marker><marker id="h-inspector-personinspectorcompany" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9 z" class="h-inspector"/></marker><marker id="h-company-personinspectorcompany" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9 z" class="h-company"/></marker></defs><line class="life" x1="160" y1="64" x2="160" y2="650"/><rect class="lane-box pp-person" x="64" y="8" width="192" height="54" rx="9"/><text class="lane-name h-person" x="160" y="31">You</text><text class="lane-sub" x="160" y="50">the person</text><line class="life" x1="480" y1="64" x2="480" y2="650"/><rect class="lane-box pp-inspector" x="384" y="8" width="192" height="54" rx="9"/><text class="lane-name h-inspector" x="480" y="31">The Inspector</text><text class="lane-sub" x="480" y="50">our testing tool</text><line class="life" x1="800" y1="64" x2="800" y2="650"/><rect class="lane-box pp-company" x="704" y="8" width="192" height="54" rx="9"/><text class="lane-name h-company" x="800" y="31">Company site</text><text class="lane-sub" x="800" y="50">the site under test</text><line class="msg-line pp-person" x1="165" y1="96" x2="475" y2="96" marker-end="url(#h-person-personinspectorcompany)"/><text class="msg-label" x="320" y="87">Press Run journey</text><line class="msg-line pp-inspector" x1="485" y1="144" x2="795" y2="144" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="135">Ask for the business card</text><circle class="badge" cx="30" cy="144" r="13"/><text class="badge-text" x="30" y="144.5">1</text><line class="msg-line pp-company back" x1="795" y1="192" x2="485" y2="192" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="183">Who they are, what they offer</text><line class="msg-line pp-inspector" x1="485" y1="240" x2="795" y2="240" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="231">Prove who we are: signed statements</text><circle class="badge" cx="30" cy="240" r="13"/><text class="badge-text" x="30" y="240.5">2</text><line class="msg-line pp-company" x1="795" y1="288" x2="485" y2="288" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="279">Checks our public ID card and keys</text><line class="msg-line pp-inspector back" x1="485" y1="336" x2="795" y2="336" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="327">Our ID card and public keys</text><line class="msg-line pp-company back" x1="795" y1="384" x2="485" y2="384" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="375">Session token, locked to our key</text><line class="msg-line pp-inspector" x1="485" y1="432" x2="795" y2="432" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="423">List the tools (second token)</text><circle class="badge" cx="30" cy="432" r="13"/><text class="badge-text" x="30" y="432.5">3</text><line class="msg-line pp-company back" x1="795" y1="480" x2="485" y2="480" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="471">The tools on offer</text><line class="msg-line pp-inspector" x1="485" y1="528" x2="795" y2="528" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="519">Call the flight search</text><circle class="badge" cx="30" cy="528" r="13"/><text class="badge-text" x="30" y="528.5">4</text><line class="msg-line pp-company back" x1="795" y1="576" x2="485" y2="576" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="567">Flight offers</text><line class="msg-line pp-inspector back" x1="475" y1="624" x2="165" y2="624" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="320" y="615">Every exchange on screen, secrets masked</text></svg>
+    <div class="legend"><span>A message</span><span class="dash">A reply</span></div>
+  </figure>
+  <ol class="steps two">
+    <li class="step">
+      <header><span class="mark">1</span><h3>Discover the company</h3></header>
+      <dl>
+        <div><dt>What is sent</dt><dd>A plain request to a public address on the company's site, <code>/.well-known/poppy.json</code>.</dd></div>
+        <div><dt>What comes back</dt><dd>The company's business card: its name, which version of the protocol it speaks, which interfaces it offers and which permissions exist.</dd></div>
+        <div><dt>Why it is safe</dt><dd>It is public information. No credentials are involved.</dd></div>
+      </dl>
+    </li>
+    <li class="step">
+      <header><span class="mark">2</span><h3>Start a session</h3></header>
+      <dl>
+        <div><dt>What is sent</dt><dd>Two signed statements, one saying which agent this is and one giving the agent's identity with this company. A single-use stamp ties the request to a fresh key made for this session.</dd></div>
+        <div><dt>What comes back</dt><dd>A session token that lasts an hour and is locked to that key. The company first looks up the Inspector's public ID card and keys, which the Inspector publishes at its own address, to check the signatures.</dd></div>
+        <div><dt>Why it is safe</dt><dd>Each stamp can be used once, for one request. Without the key, a stolen token does nothing.</dd></div>
+      </dl>
+    </li>
+    <li class="step">
+      <header><span class="mark">3</span><h3>List the tools</h3></header>
+      <dl>
+        <div><dt>What is sent</dt><dd>A request to the company's tool service, using a second token that works only for that service.</dd></div>
+        <div><dt>What comes back</dt><dd>The tools an agent may use there, each with a short description, such as searching for flights. The tool service follows MCP, the common standard for this.</dd></div>
+        <div><dt>Why it is safe</dt><dd>A token for the tool service is refused everywhere else.</dd></div>
+      </dl>
+    </li>
+    <li class="step">
+      <header><span class="mark">4</span><h3>Use a public tool</h3></header>
+      <dl>
+        <div><dt>What is sent</dt><dd>A flight search. Like every request, it carries its own fresh stamp.</dd></div>
+        <div><dt>What comes back</dt><dd>A list of flight offers.</dd></div>
+        <div><dt>Why it is safe</dt><dd>Anyone may use this tool. It touches no personal data and needs no sign-in.</dd></div>
+      </dl>
+    </li>
+  </ol>
+  <div class="screen">
+    <h3>What you see on screen</h3>
+    <p>Each step shows a tick or a cross. Open a step to read every request and response behind it. When the company refuses something, the likely causes are listed next to it. Each signed token is opened up, with its contents checked against the rules the company applies. The signature itself is never shown.</p>
+  </div>
+</section>
+
+<section aria-labelledby="more">
+  <div class="head">
+    <h2 id="more">Beyond the standard run</h2>
+    <p>A longer run adds the steps that need a person. You approve a sign-in on the company's own page. The agent then calls a tool that needs that sign-in and proposes a booking. Nothing is confirmed until you decide, and the run ends by signing out. The Inspector can also send deliberately broken requests to confirm that the company refuses them.</p>
+  </div>
+</section>
+
+<section aria-labelledby="terms">
+  <div class="head"><h2 id="terms">Terms used</h2></div>
+  <dl class="glossary">
+    <div><dt>Agent</dt><dd>Software that acts for a person, here an AI agent talking to a company's website.</dd></div>
+    <div><dt>Token</dt><dd>A digital pass the company issues after checking an agent. It is time-limited and limited in what it allows.</dd></div>
+    <div><dt>Signature</dt><dd>A mark that proves who produced a message and that nobody changed it.</dd></div>
+    <div><dt>Key</dt><dd>A pair of codes. One stays private and signs. The other is public and lets anyone check the signature.</dd></div>
+    <div><dt>Session</dt><dd>The period during which the company recognises the agent, tied to one key.</dd></div>
+    <div><dt>PKCE</dt><dd>A sign-in safeguard. It proves the program finishing a sign-in is the one that started it.</dd></div>
+    <div><dt>Approved list</dt><dd>The people allowed to use the Inspector, checked after the identity provider has confirmed who they are.</dd></div>
+    <div><dt>MCP</dt><dd>A common standard for an agent to list and use the tools a service offers.</dd></div>
+  </dl>
+</section>
+
+<footer>The identity provider and company site named here are the ones in the current test setup. The diagrams show the standard run, as built.</footer>
+
+</main>
+</body>
+</html>
