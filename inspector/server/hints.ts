@@ -14,6 +14,7 @@ const BY_CODE: Record<string, string[]> = {
 	invalid_client: [
 		"The client assertion was refused. Check that `client_id` is the exact HTTPS URL of your client metadata, and that the JWKS it points to holds the key that signed the assertion (same `kid`).",
 		"The assertion's `iss` and `sub` must both equal `client_id`, and its `aud` must be the company's issuer.",
+		"If the agent has just restarted, it made new keys but the company may still hold the old key set in its cache. Poppyseed refetches after a failed signature at most every 30 seconds, so wait that long and run again.",
 	],
 	invalid_grant: [
 		"The grant was refused. For a session assertion: check `aud` (the company's issuer), `exp` (at most 5 minutes after `iat`), that `jti` has never been used before, and that the Agent ID matches the one this Session started with.",

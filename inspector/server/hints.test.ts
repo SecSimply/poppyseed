@@ -18,6 +18,10 @@ describe("hintsFor", () => {
 		expect(hintsFor(401, json("invalid_client", "aud must be this Company's issuer"), {}).join(" ")).toMatch(/client_id[\s\S]*JWKS|JWKS[\s\S]*client_id/);
 	});
 
+	it("tells a developer that a restarted agent's new keys may not be picked up straight away", () => {
+		expect(hintsFor(401, json("invalid_client", "assertion signature or claims are invalid"), {}).join(" ")).toMatch(/restarted[\s\S]*cache[\s\S]*30 seconds/);
+	});
+
 	it("reads the error from WWW-Authenticate when the body has none", () => {
 		expect(hintsFor(401, "", { "www-authenticate": 'DPoP error="invalid_token"' }).join(" ")).toMatch(/expired|revoked/);
 	});

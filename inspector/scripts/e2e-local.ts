@@ -3,7 +3,7 @@
  * For local development only: it signs in as the Poppy Travel demo's test traveler (Maya), so TARGET must be the
  * demo site and the inspector must be running with it.
  *
- *   INSPECTOR=http://localhost:3001 TARGET=http://localhost:3300 node --experimental-strip-types scripts/e2e-local.ts [approve|decline]
+ *   PERSON_COOKIE=nb_session=cus_ada (for Nova Bank) INSPECTOR=http://localhost:3001 TARGET=http://localhost:3300 node --experimental-strip-types scripts/e2e-local.ts [approve|decline]
  */
 import { Browser } from "poppyseed/agent";
 import type { ProtocolEvent } from "../shared/events.ts";
@@ -17,7 +17,7 @@ const started = await fetch(`${inspector}/api/runs`, { method: "POST", headers: 
 const { runId } = (await started.json()) as { runId: string };
 const stream = await fetch(`${inspector}/api/runs/${runId}/events`, { headers });
 
-const maya = new Browser(globalThis.fetch.bind(globalThis), "pt_session=trv_maya");
+const maya = new Browser(globalThis.fetch.bind(globalThis), process.env.PERSON_COOKIE ?? "pt_session=trv_maya");
 let failed = false;
 let buffer = "";
 for await (const chunk of stream.body!.pipeThrough(new TextDecoderStream())) {
