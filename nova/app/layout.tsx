@@ -33,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 							</svg>
 							Nova Bank
 						</a>
+						<a href="/payments">Payments</a>
 						<a href="/account">Account</a>
 					</div>
 				</nav>

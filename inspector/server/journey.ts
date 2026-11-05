@@ -1,6 +1,7 @@
 import { PATHS } from "poppyseed/paths";
 import { PapError, readBody, type Discovery, type Operation, type TestAgent, type TokenResponse } from "poppyseed/agent";
 import type { ProtocolEvent } from "../shared/events.ts";
+import { approveOperation } from "./approval.ts";
 
 interface Tool {
 	name: string;
@@ -25,6 +26,8 @@ export interface JourneyOptions {
 		scopedTool: Call;
 		/** An action tool that proposes an operation. Arguments default from the public tool's first offer when it is book_flight. */
 		operation: { name: string; arguments?: Record<string, unknown> };
+		/** The person has pre-approved operations the company doesn't require their own approval for. */
+		standingPermission?: boolean;
 	};
 	/** Resolves when the person decides in the inspector. Declines when the run is cancelled or times out. */
 	decide: () => Promise<"approve" | "decline">;
@@ -64,7 +67,6 @@ const sleep = (ms: number, signal: AbortSignal) =>
 	});
 
 const DEMO_SCOPES = ["trips:read", "trips:write"];
-const TERMINAL: Operation["state"][] = ["succeeded", "failed", "cancelled", "expired"];
 
 /**
  * The journey: discover, start a Session, list tools over MCP, call a public tool; then, when asked, sign a person
@@ -221,7 +223,7 @@ export async function runJourney(agent: TestAgent, options: JourneyOptions): Pro
 						`${signIn.operation.name}(${JSON.stringify(args)})`,
 						`operation ${operation.operation_id} · revision ${operation.revision} · ${operation.state}`,
 						operation.summary,
-						...(operation.user_approval_required ? ["this one needs the person's own approval on the company's page"] : []),
+						...(operation.user_approval_required ? ["the company requires the person's own approval for this one"] : []),
 					];
 				},
 			],
@@ -231,54 +233,9 @@ export async function runJourney(agent: TestAgent, options: JourneyOptions): Pro
 				async () => {
 					if (!operation) return "skipped";
 					const token = need(signedIn, "signed-in Session").access_token;
-					const op = operation;
-					// The person approves what the summary says. The agent never confirms before they have.
-					if (op.user_approval_required) {
-						const link = op.url && agent.mayShowVerificationUri(op.url) ? op.url : undefined;
-						emit({
-							type: "action.required",
-							step: "approve",
-							kind: "open-link",
-							title: "Approve on the company's page",
-							lines: [op.summary, link ? "Open the link and approve there." : "The company gave no approval link on its own domain."],
-							...(link ? { link } : {}),
-							at: Date.now(),
-						});
-						const deadline = Date.now() + 10 * 60_000;
-						for (;;) {
-							await sleep(3000, signal);
-							const current = (await agent.operation(token, op.operation_id)).operation;
-							if (current.state !== "proposed") {
-								operation = current;
-								break;
-							}
-							if (Date.now() > deadline) throw new Error("no approval within 10 minutes");
-						}
-						emit({ type: "action.resolved", step: "approve", outcome: operation.state, at: Date.now() });
-						return [`state: ${operation.state}`, operation.result?.summary ?? ""].filter(Boolean);
-					}
-					emit({
-						type: "action.required",
-						step: "approve",
-						kind: "approve-operation",
-						title: "Approve or decline this operation",
-						lines: [op.summary, `terms: ${JSON.stringify(op.terms ?? {})}`, ...(op.expires_at ? [`expires: ${op.expires_at}`] : [])],
-						at: Date.now(),
-					});
-					const decision = await decide();
-					if (decision === "decline") {
-						operation = await agent.cancel(token, op.operation_id);
-						emit({ type: "action.resolved", step: "approve", outcome: "declined", at: Date.now() });
-						return ["declined: the operation was cancelled", `state: ${operation.state}`];
-					}
-					let reply = await agent.confirm(token, op);
-					for (let i = 0; i < 10 && !TERMINAL.includes(reply.operation.state); i++) {
-						await sleep(Math.max(1000, Number(reply.retryAfter) * 1000 || 1000), signal);
-						reply = await agent.operation(token, op.operation_id);
-					}
-					operation = reply.operation;
-					emit({ type: "action.resolved", step: "approve", outcome: "approved", at: Date.now() });
-					return [`state: ${operation.state}`, operation.result?.summary ?? "", `approved_by: ${operation.confirmation?.approved_by ?? "?"}`].filter(Boolean);
+					const settled = await approveOperation(agent, token, operation, { emit, decide, standingPermission: signIn.standingPermission === true, sleep: (ms) => sleep(ms, signal) });
+					operation = settled.operation;
+					return settled.summary;
 				},
 			],
 		);

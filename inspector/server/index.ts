@@ -17,6 +17,7 @@ import type { AuthInfo, InspectorConfig, ProtocolEvent } from "../shared/events.
 import { capture, type Knowledge } from "./capture.ts";
 import { FAULTS, faultInfo, runFault } from "./faults.ts";
 import { runJourney } from "./journey.ts";
+import { parseOperations, type OperationPreset } from "./presets.ts";
 import { BadCallback, NotAllowed, Oidc, oidcFromEnv } from "./oidc.ts";
 
 const port = Number(process.env.PORT ?? 3001);
@@ -39,11 +40,14 @@ const publicTool = {
 	name: process.env.PUBLIC_TOOL ?? "search_flights",
 	arguments: json_env("PUBLIC_TOOL_ARGS") ?? { from: "SFO", to: "LIS", date: new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10) },
 };
-const signInOptions = {
+const operations = parseOperations(process.env);
+const signInOptions = (operation: OperationPreset) => ({
 	scopes: process.env.SIGNIN_SCOPES,
 	scopedTool: { name: process.env.SCOPED_TOOL ?? "my_trips", arguments: json_env("SCOPED_TOOL_ARGS") ?? {} },
-	operation: { name: process.env.OPERATION_TOOL ?? "book_flight", arguments: json_env("OPERATION_ARGS") },
-};
+	operation: { name: operation.name, arguments: operation.arguments },
+	// A demonstration of the difference between an operation the company lets an agent do and one it keeps for the person.
+	standingPermission: process.env.STANDING_PERMISSION === "1",
+});
 
 /** A 1x1 transparent PNG. */
 const LOGO = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
@@ -83,7 +87,7 @@ const agent = await TestAgent.create({
 		)(input, init),
 });
 
-function startRun(signIn: boolean, faultId?: string): Run {
+function startRun(signIn: boolean, faultId?: string, operation: OperationPreset = operations[0]!): Run {
 	const run: Run = { id: randomUUID(), events: [], done: false, listeners: new Set(), abort: new AbortController() };
 	runs.set(run.id, run);
 	for (const id of [...runs.keys()].slice(0, Math.max(0, runs.size - 20))) runs.delete(id); // keep the last 20
@@ -103,7 +107,7 @@ function startRun(signIn: boolean, faultId?: string): Run {
 	const fault = FAULTS.find((f) => f.id === faultId);
 	void (fault
 		? runFault(agent, fault, { target, emit: send, setStep, onDiscovered })
-		: runJourney(agent, { target, emit: send, setStep, publicTool, signIn: signIn ? signInOptions : undefined, decide, signal: run.abort.signal, onDiscovered })
+		: runJourney(agent, { target, emit: send, setStep, publicTool, signIn: signIn ? signInOptions(operation) : undefined, decide, signal: run.abort.signal, onDiscovered })
 	)
 		.catch((error) => {
 			send({ type: "step.end", step: active?.step ?? "", ok: false, summary: [], error: String(error), at: Date.now() });
@@ -245,12 +249,14 @@ createServer(async (request, response) => {
 		if (url.pathname.startsWith("/api/")) {
 			if (!authorized(request)) return json(response, 401, { error: "unauthorized" });
 			if (request.method !== "GET" && !sameOrigin(request)) return json(response, 403, { error: "cross-origin request" });
-			if (request.method === "GET" && url.pathname === "/api/config") return json(response, 200, { target, clientId, redacted: redact, faults: faultInfo } satisfies InspectorConfig);
+			if (request.method === "GET" && url.pathname === "/api/config") return json(response, 200, { target, clientId, redacted: redact, faults: faultInfo, operations: operations.map(({ label }) => ({ label })) } satisfies InspectorConfig);
 			if (request.method === "POST" && url.pathname === "/api/runs") {
 				if (active) return json(response, 409, { error: "a run is already in progress", runId: active.run.id });
 				const body = await readJson(request);
 				if (body.fault !== undefined && !FAULTS.some((f) => f.id === body.fault)) return json(response, 400, { error: "unknown fault" });
-				return json(response, 201, { runId: startRun(body.signIn === true, typeof body.fault === "string" ? body.fault : undefined).id });
+				const index = body.operation === undefined ? 0 : body.operation;
+				if (typeof index !== "number" || !Number.isInteger(index) || index < 0 || index >= operations.length) return json(response, 400, { error: "unknown operation" });
+				return json(response, 201, { runId: startRun(body.signIn === true, typeof body.fault === "string" ? body.fault : undefined, operations[index]).id });
 			}
 			const routed = url.pathname.match(/^\/api\/runs\/([\w-]+)\/(events|decision|cancel)$/);
 			const run = routed && runs.get(routed[1]!);

@@ -42,7 +42,7 @@ Scope today: one target site (our own Railway deployment), one agent identity, o
 | signin | Device Sign-In: link and code shown, the inspector polls | yes: approves on the company's page |
 | account | a scoped tool over the HTTP API (default `my_trips`) | no |
 | propose | an action tool returns an operation (default `book_flight`) | no |
-| approve | the person approves or declines; the agent confirms or cancels | yes: in the UI, or on the company's page if the operation requires it |
+| approve | the person approves or declines; the agent confirms or cancels | yes: in the UI. With `STANDING_PERMISSION=1`, not for an operation the company lets an agent do |
 | signout | revokes the Account Token | no |
 
 The first four run with "Run journey". All nine run with "Run with sign-in and operations".
@@ -75,7 +75,7 @@ Tokens, assertions, DPoP proofs, cookies and device/refresh/access token fields 
 Run state, agent keys and login sessions are in memory. A second concurrent run returns 409. A restart loses runs and signs everyone out. *Alternative: a shared store. Deferred: nothing here needs it yet, and it would add a database to a debugging tool.*
 
 **8. The human steps wait for a real person.**
-Device Sign-In can only be approved by someone in their own browser, and the spec forbids an agent approving for them. The run emits an `action.required` event with the link and code and polls. The agent never confirms an operation before the person has decided; an unanswered decision declines after 10 minutes, never approves by default. Links are shown only if their host is the issuer's or a protected resource's (spec 4.6).
+Device Sign-In can only be approved by someone in their own browser, and the spec forbids an agent approving for them. The run emits an `action.required` event with the link and code and polls. The agent never confirms an operation before the person has decided; an unanswered decision declines after 10 minutes, never approves by default. The person decides in the inspector, as the spec has it: the agent gets the User's approval through its own interface and confirms as `user`. An operation the company marks `user_approval_required` is always decided this way. A standing permission, off by default, may cover only operations the company does not mark, so the difference between the two is visible. Links are shown only if their host is the issuer's or a protected resource's (spec 4.6).
 
 **9. The inspector's own login is OIDC with PKCE, run by the server (Curity).**
 The server is the OIDC client: authorization code flow, S256 PKCE, `state`, `nonce`, a verified ID token (issuer, audience, algorithm allow-list). The browser holds only an opaque HttpOnly cookie, so no tokens are in the browser. *Alternative: a browser-side OIDC client (SPA). Rejected: tokens in the browser, and nothing here needs them.*

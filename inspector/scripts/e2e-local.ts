@@ -13,7 +13,7 @@ const target = process.env.TARGET ?? "http://localhost:3300";
 const decision = process.argv[2] === "decline" ? "decline" : "approve";
 const headers: Record<string, string> = process.env.INSPECTOR_TOKEN ? { authorization: `Bearer ${process.env.INSPECTOR_TOKEN}` } : {};
 
-const started = await fetch(`${inspector}/api/runs`, { method: "POST", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ signIn: true }) });
+const started = await fetch(`${inspector}/api/runs`, { method: "POST", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ signIn: true, ...(process.env.OPERATION ? { operation: Number(process.env.OPERATION) } : {}) }) });
 const { runId } = (await started.json()) as { runId: string };
 const stream = await fetch(`${inspector}/api/runs/${runId}/events`, { headers });
 

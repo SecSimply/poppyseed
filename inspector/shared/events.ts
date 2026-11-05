@@ -71,4 +71,6 @@ export interface InspectorConfig {
 	clientId: string;
 	redacted: boolean;
 	faults: FaultInfo[];
+	/** Operations the longer run can propose, for the person to choose between. One when only one is configured. */
+	operations: { label: string }[];
 }

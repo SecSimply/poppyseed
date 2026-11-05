@@ -25,8 +25,8 @@ export async function getConfig(token: string): Promise<InspectorConfig> {
 	return response.json();
 }
 
-export async function startRun(token: string, signIn: boolean, fault?: string): Promise<string> {
-	const response = await call("/api/runs", token, { method: "POST", body: JSON.stringify({ signIn, ...(fault ? { fault } : {}) }) });
+export async function startRun(token: string, signIn: boolean, fault?: string, operation?: number): Promise<string> {
+	const response = await call("/api/runs", token, { method: "POST", body: JSON.stringify({ signIn, ...(fault ? { fault } : {}), ...(operation !== undefined ? { operation } : {}) }) });
 	const body = await response.json();
 	if (!response.ok) throw new Error(body.error ?? `HTTP ${response.status}`);
 	return body.runId;

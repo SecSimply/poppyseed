@@ -1,7 +1,7 @@
-import { definePoppyseed, memoryStore, safeFetch, tool, ToolError } from "poppyseed";
+import { definePoppyseed, memoryStore, OperationFailed, safeFetch, tool, ToolError } from "poppyseed";
 import { after } from "next/server";
 import { z } from "zod";
-import { accountOf, accountsOf, balanceCents, money, transactionsOf } from "./lib/bank.ts";
+import { accountOf, accountsOf, balanceCents, money, movePayment, needsOwnApproval, OWN_APPROVAL_OVER_CENTS, parseAmount, payeeOf, payeesOf, transactionsOf, usd } from "./lib/bank.ts";
 import { SITE_COOKIE, siteCustomer } from "./lib/customers.ts";
 import { BRANCHES, CITIES, RATES } from "./lib/products.ts";
 
@@ -12,6 +12,9 @@ const baseUrl = process.env.POPPYSEED_BASE_URL ?? (isDev || isBuild ? "http://lo
 if (!baseUrl) throw new Error("Set POPPYSEED_BASE_URL to the public origin in production");
 const secret = process.env.POPPYSEED_SECRET ?? (isDev || isBuild ? "dev-only-secret-change-me-in-production!!" : undefined);
 if (!secret) throw new Error("Set POPPYSEED_SECRET (32+ characters) in production");
+
+const amountField = z.string().describe('Amount in US dollars as a decimal string, for example "96.40"');
+const referenceField = z.string().max(40).optional().describe("A short note that appears on the statement");
 
 export const poppyseed = definePoppyseed({
 	organization: { name: "Nova Bank", domain: new URL(baseUrl).hostname },
@@ -33,7 +36,7 @@ export const poppyseed = definePoppyseed({
 	scopes: {
 		"accounts:read": "See your accounts and balances. It doesn't show transactions and can't move money.",
 		"transactions:read": "See the transactions on your accounts. It doesn't show balances and can't move money.",
-		"payments:write": "Propose payments and transfers from your accounts. Larger ones, and any to a new payee, still need you to approve them yourself.",
+		"payments:write": `Propose payments to your saved payees and transfers between your own accounts. Payments over ${usd(OWN_APPROVAL_OVER_CENTS.payee)} and transfers over ${usd(OWN_APPROVAL_OVER_CENTS.transfer)} still need you to approve them yourself. It can't add a payee, and it is told if an account can't cover a payment.`,
 	},
 	// How consequential each scope is, so a personal agent can ask before requesting it.
 	scopeHints: {
@@ -94,6 +97,78 @@ export const poppyseed = definePoppyseed({
 						amount: money(t.cents),
 					})),
 				};
+			},
+		}),
+		list_payees: tool({
+			description: "Your saved payees, the only people and companies a payment can go to. It can't add a payee.",
+			scope: "payments:write",
+			input: z.object({}),
+			run: (_input, ctx) => ({ payees: payeesOf(ctx.account.id).map((p) => ({ payee_id: p.id, name: p.name, ending: p.endingDigits })) }),
+		}),
+		pay_payee: tool({
+			description: `Pay a saved payee from one of your accounts. Payments over ${usd(OWN_APPROVAL_OVER_CENTS.payee)} need the customer's own approval. Returns an operation to confirm.`,
+			scope: "payments:write",
+			input: z.object({ payee_id: z.string().describe("A payee_id from list_payees"), from_account_id: z.string().describe("An account_id from list_accounts"), amount: amountField, reference: referenceField }),
+			operation: {
+				propose: ({ payee_id, from_account_id, amount, reference }, ctx) => {
+					const cents = parseAmount(amount);
+					if (!cents) throw new ToolError(`"${amount}" is not an amount. Use dollars and cents such as "96.40".`);
+					const payee = payeeOf(ctx.account.id, payee_id);
+					if (!payee) throw new ToolError(`No saved payee ${payee_id}. list_payees lists yours. A payee can only be added by the customer, not by an agent.`);
+					const from = accountOf(ctx.account.id, from_account_id);
+					if (!from) throw new ToolError(`No account ${from_account_id}. list_accounts lists yours.`);
+					if (balanceCents(from) < cents) throw new ToolError(`There is not enough money in ${from.name} ••${from.endingDigits} for ${usd(cents)}.`);
+					const own = needsOwnApproval("payee", cents);
+					return {
+						key: `pay:${from.id}:${payee.id}`,
+						summary: `Pay ${usd(cents)} to ${payee.name} (account ending ${payee.endingDigits}) from ${from.name} ••${from.endingDigits}${reference ? `, reference "${reference}"` : ""}. The money leaves today and can't be recalled.${own ? " This payment is over the limit for a standing permission, so you must approve it yourself." : ""}`,
+						terms: { payee_id: payee.id, from_account_id: from.id, amount: money(cents), ...(reference ? { reference } : {}) },
+						userApprovalRequired: own,
+						url: `${baseUrl}/payments`,
+						expiresIn: 15 * 60,
+					};
+				},
+				perform: ({ id, terms }, ctx) => {
+					const payee = payeeOf(ctx.account.id, terms.payee_id);
+					const cents = parseAmount(terms.amount.amount);
+					if (!payee || !cents) throw new OperationFailed("The payee is no longer available. Nothing was paid.");
+					const moved = movePayment(id, ctx.account.id, { from: terms.from_account_id, description: `${payee.name}${terms.reference ? ` · ${terms.reference}` : ""}`, category: "payment", cents });
+					if (!moved.ok) throw new OperationFailed(moved.reason);
+					return { summary: `Paid ${usd(cents)} to ${payee.name}. Reference ${moved.reference}.`, data: { reference: moved.reference } };
+				},
+			},
+		}),
+		transfer_between_accounts: tool({
+			description: `Move money between two of your own accounts. Transfers over ${usd(OWN_APPROVAL_OVER_CENTS.transfer)} need the customer's own approval. Returns an operation to confirm.`,
+			scope: "payments:write",
+			input: z.object({ from_account_id: z.string(), to_account_id: z.string(), amount: amountField, reference: referenceField }),
+			operation: {
+				propose: ({ from_account_id, to_account_id, amount, reference }, ctx) => {
+					const cents = parseAmount(amount);
+					if (!cents) throw new ToolError(`"${amount}" is not an amount. Use dollars and cents such as "250.00".`);
+					const from = accountOf(ctx.account.id, from_account_id);
+					const to = accountOf(ctx.account.id, to_account_id);
+					if (!from || !to) throw new ToolError("Both accounts must be yours. list_accounts lists them.");
+					if (from.id === to.id) throw new ToolError("Choose two different accounts.");
+					if (balanceCents(from) < cents) throw new ToolError(`There is not enough money in ${from.name} ••${from.endingDigits} for ${usd(cents)}.`);
+					const own = needsOwnApproval("transfer", cents);
+					return {
+						key: `xfer:${from.id}:${to.id}`,
+						summary: `Move ${usd(cents)} from ${from.name} ••${from.endingDigits} to ${to.name} ••${to.endingDigits}${reference ? `, reference "${reference}"` : ""}.${own ? " This transfer is over the limit for a standing permission, so you must approve it yourself." : ""}`,
+						terms: { from_account_id: from.id, to_account_id: to.id, amount: money(cents), ...(reference ? { reference } : {}) },
+						userApprovalRequired: own,
+						url: `${baseUrl}/payments`,
+						expiresIn: 15 * 60,
+					};
+				},
+				perform: ({ id, terms }, ctx) => {
+					const cents = parseAmount(terms.amount.amount);
+					const to = accountOf(ctx.account.id, terms.to_account_id);
+					if (!cents || !to) throw new OperationFailed("An account is no longer available. Nothing was moved.");
+					const moved = movePayment(id, ctx.account.id, { from: terms.from_account_id, to: to.id, description: `Transfer to ${to.name} ••${to.endingDigits}${terms.reference ? ` · ${terms.reference}` : ""}`, category: "transfer", cents });
+					if (!moved.ok) throw new OperationFailed(moved.reason);
+					return { summary: `Moved ${usd(cents)}. Reference ${moved.reference}.`, data: { reference: moved.reference } };
+				},
 			},
 		}),
 		get_rates: tool({

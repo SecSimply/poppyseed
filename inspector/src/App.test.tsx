@@ -17,7 +17,7 @@ vi.mock("./api.ts", () => ({ ...api, Unauthorized: class Unauthorized extends Er
 
 import { App } from "./App.tsx";
 
-const config: InspectorConfig = { target: "https://site.example", clientId: "https://inspector.example/agent/client.json", redacted: true, faults: [] };
+const config: InspectorConfig = { target: "https://site.example", clientId: "https://inspector.example/agent/client.json", redacted: true, faults: [], operations: [{ label: "book_flight" }] };
 const signedIn: AuthInfo = { oidc: true, token: false, user: { sub: "abc", email: "dev@example.com" } };
 
 const http = (step: string, status: number): ProtocolEvent =>
@@ -197,8 +197,26 @@ describe("hints, tokens and fault tests", () => {
 		await userEvent.selectOptions(screen.getByRole("combobox"), "dpop-stale");
 		expect(screen.getByText("A proof's iat must be recent.")).toBeTruthy();
 		await userEvent.click(button);
-		await waitFor(() => expect(api.startRun).toHaveBeenCalledWith("", false, "dpop-stale"));
+		await waitFor(() => expect(api.startRun).toHaveBeenCalledWith("", false, "dpop-stale", undefined));
 		expect(await screen.findByText("refused as required")).toBeTruthy();
+	});
+
+	it("lets the person choose which operation the longer run proposes, and sends that choice", async () => {
+		api.getAuthInfo.mockResolvedValue(signedIn);
+		api.getConfig.mockResolvedValue({ ...config, operations: [{ label: "Pay the energy bill, $96.40" }, { label: "Pay the rent, $1,450.00" }] });
+		stream([{ type: "run.start", signIn: true } as unknown as ProtocolEvent, { type: "run.end", ok: true } as unknown as ProtocolEvent]);
+		render(<App />);
+		const picker = await screen.findByRole("combobox", { name: /operation/i });
+		await userEvent.selectOptions(picker, "Pay the rent, $1,450.00");
+		await userEvent.click(screen.getByRole("button", { name: /sign-in and operations/i }));
+		await waitFor(() => expect(api.startRun).toHaveBeenCalledWith("", true, undefined, 1));
+	});
+
+	it("offers no operation picker when there is only one operation", async () => {
+		api.getAuthInfo.mockResolvedValue(signedIn);
+		render(<App />);
+		await screen.findByRole("button", { name: /^run journey/i });
+		expect(screen.queryByRole("combobox", { name: /operation/i })).toBeNull();
 	});
 
 	it("offers no fault picker when the server lists no faults", async () => {

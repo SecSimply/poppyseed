@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { poppyseed } from "../../poppyseed.config";
-import { accountsOf, balanceCents, money } from "../../lib/bank";
+import { accountsOf, balanceCents, usd } from "../../lib/bank";
 import { SITE_COOKIE, siteCustomer } from "../../lib/customers";
 
 export const dynamic = "force-dynamic";
@@ -48,7 +48,7 @@ export default async function Account() {
 								<tr key={a.id}>
 									<td><strong>{a.name}</strong> <span className="muted num">••{a.endingDigits}</span></td>
 									<td>{a.type}</td>
-									<td className="r num">${Number(money(balanceCents(a)).amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+									<td className="r num">{usd(balanceCents(a))}</td>
 								</tr>
 							))}
 						</tbody>

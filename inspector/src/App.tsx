@@ -174,6 +174,7 @@ export function App() {
 	const [runId, setRunId] = useState<string>();
 	const [selected, setSelected] = useState<string>();
 	const [fault, setFault] = useState("");
+	const [operation, setOperation] = useState(0);
 	const [running, setRunning] = useState(false);
 	const [error, setError] = useState<string>();
 	const abort = useRef<AbortController>(undefined);
@@ -206,7 +207,7 @@ export function App() {
 	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 	const run = useCallback(
-		async (signIn: boolean, faultId?: string) => {
+		async (signIn: boolean, faultId?: string, operationIndex?: number) => {
 			abort.current?.abort();
 			const controller = (abort.current = new AbortController());
 			setEvents([]);
@@ -214,7 +215,7 @@ export function App() {
 			setError(undefined);
 			setRunning(true);
 			try {
-				const id = await startRun(token, signIn, faultId);
+				const id = await startRun(token, signIn, faultId, operationIndex);
 				setRunId(id);
 				await streamRun(token, id, (e) => setEvents((prev) => [...prev, e]), controller.signal);
 			} catch (e) {
@@ -290,9 +291,21 @@ export function App() {
 						<button className="run" onClick={() => void run(false)} disabled={running}>
 							{running ? "Running…" : "Run journey"}
 						</button>
-						<button onClick={() => void run(true)} disabled={running} title="Needs a person to approve in their own browser">
+						<button onClick={() => void run(true, undefined, operation)} disabled={running} title="Needs a person to approve in their own browser">
 							Run with sign-in and operations
 						</button>
+						{config.operations.length > 1 && (
+							<label>
+								Operation{" "}
+								<select value={operation} onChange={(e) => setOperation(Number(e.target.value))} disabled={running}>
+									{config.operations.map((o, i) => (
+										<option key={i} value={i}>
+											{o.label}
+										</option>
+									))}
+								</select>
+							</label>
+						)}
 						{running && runId && <button onClick={() => void cancelRun(token, runId)}>Cancel</button>}
 						{end?.type === "run.end" && <span className={end.ok ? "pill ok" : "pill failed"}>{end.ok ? (faultRun ? "refused as required" : "all steps passed") : "stopped at a failing step"}</span>}
 					</div>
