@@ -80,7 +80,7 @@ pnpm --filter poppyseed-inspector build && pnpm --filter poppyseed-inspector sta
 
 A local run needs a target that accepts loopback agents (a Poppyseed site in development). Run one instance only: keys, runs and login sessions live in the process, so a restart signs everyone out.
 
-To try the sign-in locally without Curity, run `scripts/mock-oidc.ts` (it signs in anyone as `dev@example.com`, so loopback only; see its header). `scripts/faults-local.ts` runs every fault against a running inspector and exits non-zero if the target accepts one. `scripts/e2e-local.ts` drives the whole journey against the demo site, playing the demo's test traveler as the person who approves. `pnpm --filter poppyseed-inspector test` covers the OIDC flow against a mock provider that enforces PKCE.
+To try the sign-in locally without Curity, run `scripts/mock-oidc.ts` (it signs in anyone as `dev@example.com`, so loopback only; see its header). `scripts/ui-local.ts` drives the real page in headless Chrome (it needs Chrome) through a longer run against a local Nova Bank, playing the customer who approves the sign-in, and prints what the page shows. `scripts/faults-local.ts` runs every fault against a running inspector and exits non-zero if the target accepts one. `scripts/e2e-local.ts` drives the whole journey against the demo site, playing the demo's test traveler as the person who approves. `pnpm --filter poppyseed-inspector test` covers the OIDC flow against a mock provider that enforces PKCE.
 
 ## Not yet (later phases)
 

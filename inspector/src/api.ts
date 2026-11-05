@@ -4,6 +4,12 @@ import type { AuthInfo, InspectorConfig, ProtocolEvent } from "../shared/events.
 const headers = (token: string): Record<string, string> => (token ? { authorization: `Bearer ${token}` } : {});
 
 export class Unauthorized extends Error {}
+/** The run is no longer on the server, which happens when the inspector restarts. */
+export class Gone extends Error {
+	constructor() {
+		super("This run is gone: the inspector restarted. Run it again.");
+	}
+}
 
 async function call(path: string, token: string, init: RequestInit = {}) {
 	const response = await fetch(path, { ...init, headers: { ...headers(token), ...(init.body ? { "content-type": "application/json" } : {}) } });
@@ -41,21 +47,36 @@ export async function cancelRun(token: string, runId: string): Promise<void> {
 	await call(`/api/runs/${runId}/cancel`, token, { method: "POST" });
 }
 
-/** Reads the run's server-sent events. fetch, not EventSource, so a token travels in a header and not the URL. */
-export async function streamRun(token: string, runId: string, onEvent: (event: ProtocolEvent) => void, signal: AbortSignal): Promise<void> {
-	const response = await fetch(`/api/runs/${runId}/events`, { headers: headers(token), signal });
-	if (!response.ok || !response.body) throw new Error(`events: HTTP ${response.status}`);
-	const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
-	let buffer = "";
-	for (;;) {
-		const { value, done } = await reader.read();
-		if (done) return;
-		buffer += value;
-		for (let end = buffer.indexOf("\n\n"); end >= 0; end = buffer.indexOf("\n\n")) {
-			const chunk = buffer.slice(0, end);
-			buffer = buffer.slice(end + 2);
-			const data = chunk.split("\n").filter((l) => l.startsWith("data: ")).map((l) => l.slice(6)).join("\n");
-			if (data) onEvent(JSON.parse(data) as ProtocolEvent);
+const pause = (ms: number, signal: AbortSignal) =>
+	new Promise<void>((resolve) => {
+		const timer = setTimeout(resolve, ms);
+		signal.addEventListener("abort", () => (clearTimeout(timer), resolve()), { once: true });
+	});
+
+/**
+ * Reads a run's events by polling. Each request returns whole events and where to resume, so a dropped connection or
+ * a proxy that holds a stream back loses nothing: the next request carries on from the last event received.
+ */
+export async function streamRun(token: string, runId: string, onEvent: (event: ProtocolEvent) => void, signal: AbortSignal, retryMs = 1000): Promise<void> {
+	let from = 0;
+	let failures = 0;
+	while (!signal.aborted) {
+		let page: { events: ProtocolEvent[]; next: number; done: boolean };
+		try {
+			const response = await fetch(`/api/runs/${runId}/poll?from=${from}`, { headers: headers(token), signal });
+			if (response.status === 401) throw new Unauthorized();
+			if (response.status === 404) throw new Gone();
+			if (!response.ok) throw new Error(`events: HTTP ${response.status}`);
+			page = await response.json();
+			failures = 0;
+		} catch (error) {
+			if (signal.aborted) return;
+			if (error instanceof Unauthorized || error instanceof Gone || ++failures > 20) throw error;
+			await pause(retryMs * Math.min(failures, 5), signal);
+			continue;
 		}
+		for (const event of page.events) onEvent(event);
+		from = page.next;
+		if (page.done) return;
 	}
 }

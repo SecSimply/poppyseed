@@ -107,7 +107,13 @@ Assertion rules (audience is the issuer as one string, lifetime at most 300 s, n
 **18. A fault test starts with a control request, and a refusal must be a 4xx.**
 Without a control, a refusal could be caused by a broken setup and the fault would look like it worked. A 5xx fails the run: the company crashed, it did not refuse. Replays send the same request twice and expect it to be accepted once, then refused. Faults reuse `TestAgent`'s own options for bending a request, so there is no second implementation to drift.
 
-**19. Hints are a static table keyed by error code.**
+**19. The page reads a run by short polling, not a stream.**
+The page asks `/api/runs/:id/poll?from=N` for the events after the last one it has. Each answer is a whole response, held for up to 20 seconds when there is nothing new, and it says where to resume. A proxy that holds back a stream, or a dropped connection, cannot hide an event or lose one: the next request carries on from the same place. The first version used server-sent events, and on Railway a run that waited for a person (the "Approve this yourself" panel) showed nothing. The stream route remains for the local scripts. *Alternative: keep SSE and reconnect. Rejected: it relies on the proxy flushing, which is the thing that failed.*
+
+**20. A finished run shows the step that matters, not sign-out.**
+Sign-out ends every longer run, so showing the latest step hid the payment result. The page shows the step the person chose, else a failing one, else the latest step other than sign-out.
+
+**21. Hints are a static table keyed by error code.**
 Advice is selected by the error code and narrowed by patterns in the description, and the description is never echoed into the page. A code the table does not know gets no hint rather than a guess.
 
 ## Deployment
@@ -138,7 +144,7 @@ Not tested:
 - **Real Curity, as automated tests.** A login against the real provider and the UI in a browser were checked by hand and worked; nothing automated covers them.
 - **The React UI in a browser.** It typechecks and builds; it has not been seen rendering, including the login screen and the action panel.
 - **An operation that requires the person's own approval** (the demo only does this above $1,000).
-- **Multiple simultaneous users** and long-lived streams behind Railway's proxy (a keep-alive comment is sent every 20 s for this).
+- **Multiple simultaneous users.**
 
 ## Known limitations
 
@@ -162,7 +168,7 @@ In rough order. The first group is what is needed before this is useful on the d
 4. Connect the GitHub repo to the Railway services so pushes deploy.
 
 **Debugging value**
-5. ~~**Error hints**~~ Done (decision 19).
+5. ~~**Error hints**~~ Done (decision 21).
 6. ~~**JWT decoder**~~ Done, without needing a reveal path (decision 16).
 7. ~~**Fault injection**~~ Done: 18 faults (decision 18). Still to add: faults at the MCP and tool endpoints, such as a missing scope, a `Bearer` scheme and a token for another service.
 8. **Show inbound requests:** record the target's fetches of `client.json` and the JWKS.

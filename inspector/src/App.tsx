@@ -236,7 +236,9 @@ export function App() {
 	};
 
 	const steps = useMemo(() => toSteps(events), [events]);
-	const current = steps.find((s) => s.id === selected) ?? steps.at(-1);
+	// Show the step the person chose, else a failing one, else the latest. Sign-out is housekeeping that ends every longer run, so it is not what they want to see.
+	const latest = steps.at(-1)?.id === "signout" && steps.length > 1 ? steps.at(-2) : steps.at(-1);
+	const current = steps.find((s) => s.id === selected) ?? steps.find((s) => s.status === "failed") ?? latest;
 	const end = events.find((e) => e.type === "run.end");
 	const faultRun = events.some((e) => e.type === "run.start" && e.fault !== undefined);
 	const chosen = config?.faults.find((f) => f.id === fault);

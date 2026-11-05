@@ -227,3 +227,33 @@ describe("hints, tokens and fault tests", () => {
 		expect(screen.queryByRole("button", { name: /run fault test/i })).toBeNull();
 	});
 });
+
+describe("which step is shown", () => {
+	const ev = (e: Record<string, unknown>) => e as unknown as ProtocolEvent;
+	const steps = (...ids: [string, string, boolean][]) => ids.flatMap(([step, title, ok]) => [ev({ type: "step.start", step, title }), ev({ type: "step.end", step, ok, summary: [`${title} result`], ...(ok ? {} : { error: `${title} broke` }) })]);
+
+	it("shows the payment step, not the sign-out that ends the run", async () => {
+		api.getAuthInfo.mockResolvedValue(signedIn);
+		stream([ev({ type: "run.start", signIn: true }), ...steps(["propose", "Propose an operation", true], ["approve", "The person decides", true], ["signout", "Sign out", true]), ev({ type: "run.end", ok: true })]);
+		render(<App />);
+		await userEvent.click(await screen.findByRole("button", { name: /sign-in and operations/i }));
+		expect(await screen.findByRole("heading", { name: "The person decides" })).toBeTruthy();
+		expect(screen.queryByText("Sign out result")).toBeNull();
+	});
+
+	it("shows a failing step before the latest one", async () => {
+		api.getAuthInfo.mockResolvedValue(signedIn);
+		stream([ev({ type: "run.start", signIn: true }), ...steps(["propose", "Propose an operation", false], ["signout", "Sign out", true]), ev({ type: "run.end", ok: false })]);
+		render(<App />);
+		await userEvent.click(await screen.findByRole("button", { name: /sign-in and operations/i }));
+		expect(await screen.findByText("Propose an operation broke")).toBeTruthy();
+	});
+
+	it("still shows a run that has only a sign-out step", async () => {
+		api.getAuthInfo.mockResolvedValue(signedIn);
+		stream([ev({ type: "run.start", signIn: true }), ...steps(["signout", "Sign out", true]), ev({ type: "run.end", ok: true })]);
+		render(<App />);
+		await userEvent.click(await screen.findByRole("button", { name: /sign-in and operations/i }));
+		expect(await screen.findByRole("heading", { name: "Sign out" })).toBeTruthy();
+	});
+});

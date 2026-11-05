@@ -258,9 +258,29 @@ createServer(async (request, response) => {
 				if (typeof index !== "number" || !Number.isInteger(index) || index < 0 || index >= operations.length) return json(response, 400, { error: "unknown operation" });
 				return json(response, 201, { runId: startRun(body.signIn === true, typeof body.fault === "string" ? body.fault : undefined, operations[index]).id });
 			}
-			const routed = url.pathname.match(/^\/api\/runs\/([\w-]+)\/(events|decision|cancel)$/);
+			const routed = url.pathname.match(/^\/api\/runs\/([\w-]+)\/(events|poll|decision|cancel)$/);
 			const run = routed && runs.get(routed[1]!);
 			if (routed && !run) return json(response, 404, { error: "no such run" });
+			// The page reads a run by short requests, each answered in full, so a proxy that holds back a stream cannot hide an event.
+			if (run && routed?.[2] === "poll" && request.method === "GET") {
+				const from = Math.max(0, Math.floor(Number(url.searchParams.get("from"))) || 0);
+				const reply = () => {
+					const events = run.events.slice(from, from + 200);
+					const next = from + events.length;
+					return json(response, 200, { events, next, done: next >= run.events.length && (run.done || run.events.at(-1)?.type === "run.end") });
+				};
+				if (run.events.length > from || run.done) return reply();
+				// Nothing new yet: hold this request for up to 20 seconds, so a person's answer shows quickly and no request is long.
+				const wake = () => {
+					clearTimeout(timer);
+					run.listeners.delete(wake);
+					if (!response.writableEnded) reply();
+				};
+				const timer = setTimeout(wake, 20_000);
+				run.listeners.add(wake);
+				request.on("close", () => (clearTimeout(timer), run.listeners.delete(wake)));
+				return;
+			}
 			if (run && routed?.[2] === "events" && request.method === "GET") {
 				response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-store", connection: "keep-alive", "x-accel-buffering": "no" });
 				const write = (event: ProtocolEvent) => response.write(`data: ${JSON.stringify(event)}\n\n`);
