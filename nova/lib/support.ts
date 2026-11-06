@@ -1,4 +1,5 @@
 import type { AgentTurn, CompanyAgent } from "poppyseed";
+import { zar } from "./bank.ts";
 import { CITIES } from "./products.ts";
 
 /** What a customer's message is asking for. Plain keyword matching: this is a scripted agent, and says what it can do. */
@@ -15,25 +16,22 @@ export function intentOf(text: string): Intent {
 	return "help";
 }
 
-/** "-96.40" as "-$96.40". */
-const usd = (amount: string) => {
-	const n = Number(amount);
-	return `${n < 0 ? "-" : ""}$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
-};
+/** "-1735.00" as "-R1 735,00". */
+const rand = (amount: string) => zar(Math.round(Number(amount) * 100));
 
 type Rates = { rates: { name: string; rate_percent: number; kind: "earned" | "charged"; term?: string }[] };
 type Branches = { branches: { name: string; city: string; address: string; hours: string; atm: boolean }[] };
 type Accounts = { accounts: { account_id: string; name: string; type: string; ending: string; balance: { amount: string } }[] };
 type Transactions = { transactions: { date: string; description: string; amount: { amount: string } }[] };
 
-const HELP = "I'm Nova Bank's assistant. I can tell you our rates, find a branch or ATM, and, once you have signed in, show your balances and recent transactions. For anything else I can pass you to a person.";
+const HELP = "I'm Protea Bank's assistant. I can tell you our rates, find a branch or ATM, and, once you have signed in, show your balances and recent transactions. For anything else I can pass you to a person.";
 
 /**
- * Nova Bank's support agent. It reads and explains. It never moves money: a payment is proposed by a tool as an
+ * Protea Bank's support agent. It reads and explains. It never moves money: a payment is proposed by a tool as an
  * operation the customer approves, and a chat message is never an approval. It uses the caller's own scopes, so a
  * session that has not signed in is asked to, and sees nothing of anyone's accounts.
  */
-export const novaAgent: CompanyAgent = {
+export const proteaAgent: CompanyAgent = {
 	async reply(turn: AgentTurn) {
 		const text = turn.latest.map((m) => m.text ?? "").join(" ");
 		switch (intentOf(text)) {
@@ -60,17 +58,17 @@ export const novaAgent: CompanyAgent = {
 				const result = await turn.callTool("list_accounts", {});
 				if (result.kind !== "output") return;
 				const { accounts } = result.output as Accounts;
-				return turn.say(accounts.length ? `Your balances: ${accounts.map((a) => `${a.name} ending ${a.ending}, ${usd(a.balance.amount)}`).join("; ")}.` : "You have no accounts with us yet.");
+				return turn.say(accounts.length ? `Your balances: ${accounts.map((a) => `${a.name} ending ${a.ending}, ${rand(a.balance.amount)}`).join("; ")}.` : "You have no accounts with us yet.");
 			}
 			case "transactions": {
 				const accounts = await turn.callTool("list_accounts", {});
 				if (accounts.kind !== "output") return;
-				const everyday = (accounts.output as Accounts).accounts.find((a) => a.type === "checking");
-				if (!everyday) return turn.say("I couldn't find a checking account to read transactions from.");
+				const everyday = (accounts.output as Accounts).accounts.find((a) => a.type === "cheque");
+				if (!everyday) return turn.say("I couldn't find a cheque account to read transactions from.");
 				const result = await turn.callTool("list_transactions", { account_id: everyday.account_id, limit: 5 });
 				if (result.kind !== "output") return;
 				const { transactions } = result.output as Transactions;
-				return turn.say(`Your latest transactions on ${everyday.name} ending ${everyday.ending}: ${transactions.map((t) => `${t.date} ${t.description} ${usd(t.amount.amount)}`).join("; ")}.`);
+				return turn.say(`Your latest transactions on ${everyday.name} ending ${everyday.ending}: ${transactions.map((t) => `${t.date} ${t.description} ${rand(t.amount.amount)}`).join("; ")}.`);
 			}
 			default:
 				return turn.say(HELP);

@@ -1,5 +1,5 @@
 /**
- * Nova Bank's own customers and sign-in. A demonstration: two fictional customers and a cookie naming who is
+ * Protea Bank's own customers and sign-in. A demonstration: two fictional customers and a cookie naming who is
  * signed in. A real bank uses its existing authentication here; Poppyseed only asks "who is signed in to this
  * browser?" and "where do they sign in?".
  */
@@ -10,11 +10,11 @@ export interface Customer {
 }
 
 export const CUSTOMERS: Customer[] = [
-	{ id: "cus_ada", name: "Ada Okoye", email: "ada@novabank.example" },
-	{ id: "cus_ben", name: "Ben Marlow", email: "ben@novabank.example" },
+	{ id: "cus_thandi", name: "Thandi Nkosi", email: "thandi@proteabank.example" },
+	{ id: "cus_pieter", name: "Pieter van Wyk", email: "pieter@proteabank.example" },
 ];
 
-export const SITE_COOKIE = "nb_session";
+export const SITE_COOKIE = "pb_session";
 
 export function customerById(id: string | undefined): Customer | undefined {
 	return CUSTOMERS.find((c) => c.id === id);

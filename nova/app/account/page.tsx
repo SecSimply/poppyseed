@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { poppyseed } from "../../poppyseed.config";
-import { accountsOf, balanceCents, usd } from "../../lib/bank";
+import { accountsOf, balanceCents, zar } from "../../lib/bank";
 import { SITE_COOKIE, siteCustomer } from "../../lib/customers";
 import { mayRead, viewer } from "../../lib/viewer";
 import { AgentBanner, NeedScope } from "../agent-banner";
@@ -18,7 +18,7 @@ export default async function Account() {
 			<main>
 				<header className="hero"><h1>Account</h1></header>
 				<AgentBanner viewer={who} />
-				{who.via === "agent" ? <p className="card">This session has not signed in to Nova Bank. Ask the customer to approve a sign-in with the <code>accounts:read</code> scope.</p> : <p className="card"><a href="/login?return_to=/account">Sign in</a> to manage your account.</p>}
+				{who.via === "agent" ? <p className="card">This session has not signed in to Protea Bank. Ask the customer to approve a sign-in with the <code>accounts:read</code> scope.</p> : <p className="card"><a href="/login?return_to=/account">Sign in</a> to manage your account.</p>}
 			</main>
 		);
 	}
@@ -54,7 +54,7 @@ export default async function Account() {
 								<tr key={a.id}>
 									<td><strong>{a.name}</strong> <span className="muted num">••{a.endingDigits}</span></td>
 									<td>{a.type}</td>
-									<td className="r num">{usd(balanceCents(a))}</td>
+									<td className="r num">{zar(balanceCents(a))}</td>
 								</tr>
 							))}
 						</tbody>
@@ -89,7 +89,7 @@ export default async function Account() {
 				)}
 			</section>}
 			{who.via === "site" && <form action={signOut}>
-				<button type="submit" className="secondary">Sign out of Nova Bank</button>
+				<button type="submit" className="secondary">Sign out of Protea Bank</button>
 			</form>}
 		</main>
 	);

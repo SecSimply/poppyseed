@@ -1,18 +1,18 @@
 /**
- * Nova Bank's accounts and transactions. Fictional, held in memory, seeded at startup. A balance is the opening
+ * Protea Bank's accounts and transactions. Fictional, in rand, held in memory, seeded at startup. A balance is the opening
  * balance plus every transaction, so a payment (phase 3) changes it by adding one.
  */
 
 export interface Money {
 	amount: string;
-	currency: "USD";
+	currency: "ZAR";
 }
 
 export interface Account {
 	id: string;
 	customerId: string;
 	name: string;
-	type: "checking" | "savings";
+	type: "cheque" | "savings";
 	/** The last four digits, the only part ever shown. */
 	endingDigits: string;
 	openingCents: number;
@@ -29,47 +29,51 @@ export interface Transaction {
 	cents: number;
 }
 
-/** Dollars for people to read: $1,450.00 and -$5.75. */
-export const usd = (cents: number): string => `${cents < 0 ? "-" : ""}$${(Math.abs(cents) / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
+/** Rand for people to read, the South African way: R1 450,00 and -R57,50. A non-breaking space groups thousands. */
+export const zar = (cents: number): string => {
+	const rand = Math.floor(Math.abs(cents) / 100);
+	const grouped = String(rand).replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0");
+	return `${cents < 0 ? "-" : ""}R${grouped},${String(Math.abs(cents) % 100).padStart(2, "0")}`;
+};
 
-export const money = (cents: number): Money => ({ amount: (cents / 100).toFixed(2), currency: "USD" });
+export const money = (cents: number): Money => ({ amount: (cents / 100).toFixed(2), currency: "ZAR" });
 
 const day = (daysAgo: number): string => new Date(Date.now() - daysAgo * 86_400_000).toISOString().slice(0, 10);
 
 export const ACCOUNTS: Account[] = [
-	{ id: "acc_ada_everyday", customerId: "cus_ada", name: "Everyday Account", type: "checking", endingDigits: "4821", openingCents: 120_000 },
-	{ id: "acc_ada_saver", customerId: "cus_ada", name: "Nova Saver", type: "savings", endingDigits: "9034", openingCents: 800_000 },
-	{ id: "acc_ben_everyday", customerId: "cus_ben", name: "Everyday Account", type: "checking", endingDigits: "1157", openingCents: 64_000 },
-	{ id: "acc_ben_saver", customerId: "cus_ben", name: "Nova Fixed Saver", type: "savings", endingDigits: "7719", openingCents: 1_500_000 },
+	{ id: "acc_thandi_everyday", customerId: "cus_thandi", name: "Everyday Cheque Account", type: "cheque", endingDigits: "4821", openingCents: 2_200_000 },
+	{ id: "acc_thandi_saver", customerId: "cus_thandi", name: "Protea Saver", type: "savings", endingDigits: "9034", openingCents: 15_000_000 },
+	{ id: "acc_pieter_everyday", customerId: "cus_pieter", name: "Everyday Cheque Account", type: "cheque", endingDigits: "1157", openingCents: 1_200_000 },
+	{ id: "acc_pieter_saver", customerId: "cus_pieter", name: "Protea Fixed Saver", type: "savings", endingDigits: "7719", openingCents: 28_000_000 },
 ];
 
 type Seed = [account: string, daysAgo: number, description: string, category: string, cents: number];
 const SEED: Seed[] = [
-	["acc_ada_everyday", 29, "Brightwater Studio payroll", "income", 172_500],
-	["acc_ada_everyday", 27, "Tidewater Energy", "bills", -9_640],
-	["acc_ada_everyday", 24, "Meridian Grocers", "groceries", -8_240],
-	["acc_ada_everyday", 21, "Harbour Coffee", "eating out", -640],
-	["acc_ada_everyday", 18, "Lakeside Transit pass", "transport", -4_500],
-	["acc_ada_everyday", 15, "Brightwater Studio payroll", "income", 172_500],
-	["acc_ada_everyday", 12, "Summit Books", "shopping", -3_295],
-	["acc_ada_everyday", 9, "Meridian Grocers", "groceries", -11_218],
-	["acc_ada_everyday", 6, "Fernhill Rent", "housing", -145_000],
-	["acc_ada_everyday", 4, "Harbour Coffee", "eating out", -575],
-	["acc_ada_everyday", 2, "Northgate Pharmacy", "health", -1_845],
-	["acc_ada_everyday", 1, "Brightwater Studio payroll", "income", 172_500],
-	["acc_ada_saver", 28, "Transfer from Everyday Account", "transfer", 50_000],
-	["acc_ada_saver", 14, "Interest", "interest", 2_599],
-	["acc_ada_saver", 3, "Transfer from Everyday Account", "transfer", 50_000],
-	["acc_ben_everyday", 26, "Quayside Logistics payroll", "income", 214_000],
-	["acc_ben_everyday", 25, "Fernhill Rent", "housing", -168_000],
-	["acc_ben_everyday", 20, "Tidewater Energy", "bills", -12_410],
-	["acc_ben_everyday", 17, "Summit Books", "shopping", -2_199],
-	["acc_ben_everyday", 11, "Meridian Grocers", "groceries", -9_377],
-	["acc_ben_everyday", 8, "Lakeside Transit pass", "transport", -4_500],
-	["acc_ben_everyday", 5, "Harbour Coffee", "eating out", -830],
-	["acc_ben_everyday", 0, "Quayside Logistics payroll", "income", 214_000],
-	["acc_ben_saver", 30, "Interest", "interest", 5_750],
-	["acc_ben_saver", 0, "Interest", "interest", 5_750],
+	["acc_thandi_everyday", 29, "Fynbos Digital payroll", "income", 3_250_000],
+	["acc_thandi_everyday", 27, "Boland Power", "bills", -173_500],
+	["acc_thandi_everyday", 24, "Karoo Fresh", "groceries", -148_250],
+	["acc_thandi_everyday", 21, "Rooibos & Co Café", "eating out", -6_400],
+	["acc_thandi_everyday", 18, "Cape Metro rail pass", "transport", -89_000],
+	["acc_thandi_everyday", 15, "Fynbos Digital payroll", "income", 3_250_000],
+	["acc_thandi_everyday", 12, "Lekker Books", "shopping", -45_900],
+	["acc_thandi_everyday", 9, "Karoo Fresh", "groceries", -210_635],
+	["acc_thandi_everyday", 6, "Dwarsrivier Rentals", "housing", -1_450_000],
+	["acc_thandi_everyday", 4, "Rooibos & Co Café", "eating out", -5_800],
+	["acc_thandi_everyday", 2, "Paarl Pharmacy", "health", -31_280],
+	["acc_thandi_everyday", 1, "Fynbos Digital payroll", "income", 3_250_000],
+	["acc_thandi_saver", 28, "Transfer from Everyday Cheque Account", "transfer", 500_000],
+	["acc_thandi_saver", 14, "Interest", "interest", 51_240],
+	["acc_thandi_saver", 3, "Transfer from Everyday Cheque Account", "transfer", 500_000],
+	["acc_pieter_everyday", 26, "Overberg Freight payroll", "income", 3_800_000],
+	["acc_pieter_everyday", 25, "Dwarsrivier Rentals", "housing", -1_680_000],
+	["acc_pieter_everyday", 20, "Boland Power", "bills", -224_000],
+	["acc_pieter_everyday", 17, "Lekker Books", "shopping", -38_900],
+	["acc_pieter_everyday", 11, "Karoo Fresh", "groceries", -173_590],
+	["acc_pieter_everyday", 8, "Cape Metro rail pass", "transport", -89_000],
+	["acc_pieter_everyday", 5, "Rooibos & Co Café", "eating out", -7_200],
+	["acc_pieter_everyday", 0, "Overberg Freight payroll", "income", 3_800_000],
+	["acc_pieter_saver", 30, "Interest", "interest", 215_000],
+	["acc_pieter_saver", 0, "Interest", "interest", 215_000],
 ];
 
 /** What changes while the bank runs: every transaction, and the payments already made. */
@@ -91,9 +95,9 @@ function seeded(): State {
 // One copy per process. A page and an API route can be bundled separately and would otherwise each get their own,
 // so a payment made through the API would not show on the page.
 declare global {
-	var __novaBank: State | undefined;
+	var __proteaBank: State | undefined;
 }
-const state = (globalThis.__novaBank ??= seeded());
+const state = (globalThis.__proteaBank ??= seeded());
 export const TRANSACTIONS: Transaction[] = state.transactions;
 
 export const accountsOf = (customerId: string): Account[] => ACCOUNTS.filter((a) => a.customerId === customerId);
@@ -127,11 +131,11 @@ export interface Payee {
 }
 
 export const PAYEES: Payee[] = [
-	{ id: "pye_ada_rent", customerId: "cus_ada", name: "Fernhill Rent", endingDigits: "3302" },
-	{ id: "pye_ada_energy", customerId: "cus_ada", name: "Tidewater Energy", endingDigits: "7741" },
-	{ id: "pye_ada_friend", customerId: "cus_ada", name: "Jamie Quill", endingDigits: "5518" },
-	{ id: "pye_ben_rent", customerId: "cus_ben", name: "Fernhill Rent", endingDigits: "3302" },
-	{ id: "pye_ben_energy", customerId: "cus_ben", name: "Tidewater Energy", endingDigits: "7741" },
+	{ id: "pye_thandi_rent", customerId: "cus_thandi", name: "Dwarsrivier Rentals", endingDigits: "3302" },
+	{ id: "pye_thandi_energy", customerId: "cus_thandi", name: "Boland Power", endingDigits: "7741" },
+	{ id: "pye_thandi_friend", customerId: "cus_thandi", name: "Sipho Dlamini", endingDigits: "5518" },
+	{ id: "pye_pieter_rent", customerId: "cus_pieter", name: "Dwarsrivier Rentals", endingDigits: "3302" },
+	{ id: "pye_pieter_energy", customerId: "cus_pieter", name: "Boland Power", endingDigits: "7741" },
 ];
 
 export const payeesOf = (customerId: string): Payee[] => PAYEES.filter((p) => p.customerId === customerId);
@@ -141,7 +145,7 @@ export const payeeOf = (customerId: string, payeeId: string): Payee | undefined 
  * Up to these amounts an agent may act on a standing permission. Above them the customer must approve each payment
  * themselves, and the bank refuses a confirmation that claims a standing permission.
  */
-export const OWN_APPROVAL_OVER_CENTS = { payee: 25_000, transfer: 500_000 } as const;
+export const OWN_APPROVAL_OVER_CENTS = { payee: 500_000, transfer: 5_000_000 } as const;
 
 /** A decimal amount such as "96.40" as whole cents, or undefined for anything else (no sign, at most two decimals). */
 export function parseAmount(text: string): number | undefined {

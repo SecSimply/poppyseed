@@ -12,16 +12,16 @@ function agentWith(start: ConversationReply, later: EventPage[] = []) {
 		message: (text) => ({ id: "msg_1", author: { type: "agent" }, text }),
 		startConversation: async () => start,
 		events: async (_t, _id, options) => (reads.push(options?.cursor), later.shift() ?? page([])),
-		handoff: async () => reply([{ id: "e", type: "state", created_at: "now", status: "waiting", responder: "human" } as ConversationEvent, message("company", "A person will be with you shortly.", "Nova Bank support")], { status: "waiting", responder: "human" }),
+		handoff: async () => reply([{ id: "e", type: "state", created_at: "now", status: "waiting", responder: "human" } as ConversationEvent, message("company", "A person will be with you shortly.", "Protea Bank support")], { status: "waiting", responder: "human" }),
 	};
 	return { agent, reads };
 }
 
 describe("askSupport", () => {
 	it("reads the company's answer when it arrives with the first reply", async () => {
-		const { agent, reads } = agentWith(reply([message("user", "rates?"), message("company", "Nova Saver 3.90% earned.")]));
+		const { agent, reads } = agentWith(reply([message("user", "rates?"), message("company", "Protea Saver 3.90% earned.")]));
 		const chat = await askSupport(agent, "t", "rates?");
-		expect(chat.lines).toEqual(["you: rates?", "the company's agent: Nova Saver 3.90% earned."]);
+		expect(chat.lines).toEqual(["you: rates?", "the company's agent: Protea Saver 3.90% earned."]);
 		expect(reads).toEqual([]);
 		expect(chat.conversationId).toBe("cnv_1");
 	});
@@ -50,7 +50,7 @@ describe("askSupport", () => {
 
 describe("describe", () => {
 	it("names a person when staff write, and skips event types it does not know", () => {
-		expect(say(message("company", "Hello", "Nova Bank support"))).toBe("Nova Bank support: Hello");
+		expect(say(message("company", "Hello", "Protea Bank support"))).toBe("Protea Bank support: Hello");
 		expect(say({ id: "e", type: "something_new", created_at: "now" })).toBeUndefined();
 	});
 
@@ -63,7 +63,7 @@ describe("askForPerson", () => {
 	it("reports the handoff and what the company said, and leaves the conversation open for staff", async () => {
 		const { agent } = agentWith(reply([]));
 		const lines = await askForPerson(agent, "t", "cnv_1");
-		expect(lines).toEqual(["asked for a person: waiting, handled by human", "Nova Bank support: A person will be with you shortly."]);
+		expect(lines).toEqual(["asked for a person: waiting, handled by human", "Protea Bank support: A person will be with you shortly."]);
 		expect("closeConversation" in agent).toBe(false);
 	});
 });

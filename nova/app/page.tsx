@@ -1,5 +1,6 @@
 import { poppyseed } from "../poppyseed.config";
 import { BRANCHES, RATES } from "../lib/products";
+import { ProteaMark } from "./protea-mark";
 
 export const dynamic = "force-dynamic";
 
@@ -17,10 +18,11 @@ export default function Home() {
 	];
 	return (
 		<main>
-			<header className="hero">
-				<p className="kicker">Agent-ready banking</p>
-				<h1>Nova Bank</h1>
-				<p className="lede">Your accounts, in your hands, or in your personal agent's. It can read rates and find a branch without signing in. Anything that touches your money needs your sign-in, and anything large needs your own approval.</p>
+			<header className="hero home">
+				<div className="bloom"><ProteaMark size={300} /></div>
+				<p className="kicker">Agent-ready banking · Paarl, South Africa</p>
+				<h1>Protea Bank</h1>
+				<p className="lede">Your money, in your hands or in your personal agent's. It can read our rates and find a branch without signing in. Anything that touches your money needs your sign-in, and anything large needs your own approval. Every amount is in rand.</p>
 			</header>
 
 			<section aria-labelledby="rates">
@@ -60,7 +62,7 @@ export default function Home() {
 
 			<section aria-labelledby="agents">
 				<h2 id="agents">For your personal agent</h2>
-				<p className="muted">Nova Bank speaks the Personal Agent Protocol. These are the addresses an agent starts from.</p>
+				<p className="muted">Protea Bank speaks the Personal Agent Protocol. These are the addresses an agent starts from.</p>
 				<dl className="card endpoints">
 					{endpoints.map(([name, url]) => (
 						<div key={name} style={{ display: "contents" }}>

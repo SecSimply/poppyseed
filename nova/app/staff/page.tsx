@@ -28,7 +28,7 @@ export default async function Staff({ searchParams }: { searchParams: Promise<{ 
 	async function reply(form: FormData) {
 		"use server";
 		if (!isStaff(form.get("key"))) throw new Error("not allowed");
-		await poppyseed.conversations.reply(String(form.get("id")), String(form.get("text")), { author: { id: "aut_support", name: "Nova Bank support" } });
+		await poppyseed.conversations.reply(String(form.get("id")), String(form.get("text")), { author: { id: "aut_support", name: "Protea Bank support" } });
 		revalidatePath("/staff");
 	}
 	async function release(form: FormData) {
@@ -73,7 +73,7 @@ export default async function Staff({ searchParams }: { searchParams: Promise<{ 
 					<div className="card">
 						{open.messages.map((m) => (
 							<p key={m.id}>
-								<strong>{m.role === "user" ? (m.author.type === "human" ? "Customer" : "Customer's agent") : m.author.type === "human" ? "Staff" : "Nova assistant"}</strong>
+								<strong>{m.role === "user" ? (m.author.type === "human" ? "Customer" : "Customer's agent") : m.author.type === "human" ? "Staff" : "Protea assistant"}</strong>
 								<br />
 								{m.text}
 							</p>

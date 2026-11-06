@@ -1,4 +1,4 @@
-import { accountsOf, TRANSACTIONS, usd } from "../../lib/bank";
+import { accountsOf, TRANSACTIONS, zar } from "../../lib/bank";
 import { mayRead, viewer } from "../../lib/viewer";
 import { AgentBanner, NeedScope } from "../agent-banner";
 
@@ -15,7 +15,7 @@ export default async function Payments() {
 			<main>
 				<header className="hero"><h1>Payments</h1></header>
 				<AgentBanner viewer={who} />
-				{who.via === "agent" ? <p className="card">This session has not signed in to Nova Bank. Ask the customer to approve a sign-in with the <code>transactions:read</code> scope.</p> : <p className="card"><a href="/login?return_to=/payments">Sign in</a> to see your payments.</p>}
+				{who.via === "agent" ? <p className="card">This session has not signed in to Protea Bank. Ask the customer to approve a sign-in with the <code>transactions:read</code> scope.</p> : <p className="card"><a href="/login?return_to=/payments">Sign in</a> to see your payments.</p>}
 			</main>
 		);
 	}
@@ -47,7 +47,7 @@ export default async function Payments() {
 										<td className="num">{t.date}</td>
 										<td>{a.name} <span className="muted num">••{a.endingDigits}</span></td>
 										<td>{t.description}</td>
-										<td className="r num">{usd(t.cents)}</td>
+										<td className="r num">{zar(t.cents)}</td>
 									</tr>
 								);
 							})}

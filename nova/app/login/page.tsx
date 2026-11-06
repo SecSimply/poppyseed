@@ -6,7 +6,7 @@ import { safeReturn } from "../../lib/return-to";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Sign in" };
 
-/** Nova Bank's own sign-in (a demonstration: pick a customer). Consent pages send people here and back. */
+/** Protea Bank's own sign-in (a demonstration: pick a customer). Consent pages send people here and back. */
 export default async function Login({ searchParams }: { searchParams: Promise<{ return_to?: string }> }) {
 	const { return_to } = await searchParams;
 	async function signIn(form: FormData) {
@@ -18,7 +18,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
 	return (
 		<main>
 			<header className="hero">
-				<p className="kicker">Nova Bank</p>
+				<p className="kicker">Protea Bank</p>
 				<h1>Sign in</h1>
 				<p className="lede">A demonstration sign-in with no password. Choose one of the two fictional customers.</p>
 			</header>

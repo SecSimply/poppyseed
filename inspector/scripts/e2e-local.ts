@@ -3,7 +3,7 @@
  * For local development only: it signs in as the Poppy Travel demo's test traveler (Maya), so TARGET must be the
  * demo site and the inspector must be running with it.
  *
- *   PERSON_COOKIE=nb_session=cus_ada (for Nova Bank) INSPECTOR=http://localhost:3001 TARGET=http://localhost:3300 node --experimental-strip-types scripts/e2e-local.ts [approve|decline]
+ *   PERSON_COOKIE=pb_session=cus_thandi (for Protea Bank) INSPECTOR=http://localhost:3001 TARGET=http://localhost:3300 node --experimental-strip-types scripts/e2e-local.ts [approve|decline]
  */
 import { Browser } from "poppyseed/agent";
 import type { ProtocolEvent } from "../shared/events.ts";
