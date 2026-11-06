@@ -1,7 +1,5 @@
 packages:
   - packages/*
-  - site
-  - video
   - fixtures/*
   - inspector
   - nova

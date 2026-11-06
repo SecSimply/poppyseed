@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { parseOperations } from "./presets.ts";
 
 describe("parseOperations", () => {
-	it("defaults to the demo's one booking when nothing is set", () => {
-		expect(parseOperations({})).toEqual([{ label: "book_flight", name: "book_flight", arguments: undefined }]);
+	it("defaults to one small Protea Bank payment when nothing is set", () => {
+		const [only, ...rest] = parseOperations({});
+		expect(rest).toEqual([]);
+		expect(only).toMatchObject({ label: "Pay Boland Power R10,00", name: "pay_payee", arguments: { amount: "10.00" } });
 	});
 
 	it("uses OPERATION_TOOL and OPERATION_ARGS for a single operation", () => {

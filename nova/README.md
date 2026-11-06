@@ -1,6 +1,6 @@
 # Protea Bank
 
-A fictional South African bank, headquartered in Paarl, that shows what a personal agent can do with the Personal Agent Protocol. It is a Poppyseed site, like Poppy Travel in `site/`, with a banking theme and a short list of services. Amounts are in South African rand (ZAR). Nothing here is real: no money, accounts or people. The directory and package keep the earlier name, `nova` and `nova-bank`, so the Railway services and their settings are unchanged.
+A fictional South African bank, headquartered in Paarl, that shows what a personal agent can do with the Personal Agent Protocol. It is a Poppyseed site with a banking theme and a short list of services. Amounts are in South African rand (ZAR). Nothing here is real: no money, accounts or people. The directory and package keep the earlier name, `nova` and `nova-bank`, so the Railway services and their settings are unchanged.
 
 **Status:** phase 8 of 8, complete. The Inspector has steps for the excluded tasks, browsing, and a blocked run, and [DEMO.md](DEMO.md) is a script for showing all five capabilities. Rates, branches, accounts, balances, transactions, payments, a support chat, browsing, excluded tasks and blocking work, with Direct and Device Sign-In and separate scopes. The plan is in the project history; each phase adds one capability.
 
@@ -96,5 +96,5 @@ The demo customer Thandi Nkosi has the saved payees `pye_thandi_rent`, `pye_than
 - **A payment moves money once.** The operation id is the idempotency key, and the funds are checked again when the payment is performed, since the balance may have changed since it was proposed.
 - **Balances and transactions are separate scopes.** `list_accounts` needs `accounts:read` and `list_transactions` needs `transactions:read`. A transaction never carries a balance, so a token can be given one view without the other.
 - **Another customer's account looks like no account.** Asking for it returns the same "No account" answer as an id that does not exist.
-- **A demonstration sign-in.** The site's own login asks you to pick one of two fictional customers, with no password, like Poppy Travel. Anyone who reaches the deployed site can pick either. That is acceptable only because the data is fictional.
+- **A demonstration sign-in.** The site's own login asks you to pick one of two fictional customers, with no password. Anyone who reaches the deployed site can pick either. That is acceptable only because the data is fictional.
 - **State is in memory.** One instance, and a restart resets everything.

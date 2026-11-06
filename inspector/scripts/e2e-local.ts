@@ -1,15 +1,15 @@
 /**
  * Drives a running inspector through the sign-in and operations journey, playing the person who approves.
- * For local development only: it signs in as the Poppy Travel demo's test traveler (Maya), so TARGET must be the
- * demo site and the inspector must be running with it.
+ * For local development only: it signs in as Protea Bank's demo customer (Thandi), so TARGET must be a local Protea Bank
+ * and the inspector must be running with it.
  *
- *   PERSON_COOKIE=pb_session=cus_thandi (for Protea Bank) INSPECTOR=http://localhost:3001 TARGET=http://localhost:3300 node --experimental-strip-types scripts/e2e-local.ts [approve|decline]
+ *   INSPECTOR=http://localhost:3001 TARGET=http://localhost:3400 node --experimental-strip-types scripts/e2e-local.ts [approve|decline]
  */
 import { Browser } from "poppyseed/agent";
 import type { ProtocolEvent } from "../shared/events.ts";
 
 const inspector = process.env.INSPECTOR ?? "http://localhost:3001";
-const target = process.env.TARGET ?? "http://localhost:3300";
+const target = process.env.TARGET ?? "http://localhost:3400";
 const decision = process.argv[2] === "decline" ? "decline" : "approve";
 const headers: Record<string, string> = process.env.INSPECTOR_TOKEN ? { authorization: `Bearer ${process.env.INSPECTOR_TOKEN}` } : {};
 
@@ -17,7 +17,7 @@ const started = await fetch(`${inspector}/api/runs`, { method: "POST", headers: 
 const { runId } = (await started.json()) as { runId: string };
 const stream = await fetch(`${inspector}/api/runs/${runId}/events`, { headers });
 
-const maya = new Browser(globalThis.fetch.bind(globalThis), process.env.PERSON_COOKIE ?? "pt_session=trv_maya");
+const person = new Browser(globalThis.fetch.bind(globalThis), process.env.PERSON_COOKIE ?? "pb_session=cus_thandi");
 let failed = false;
 let buffer = "";
 for await (const chunk of stream.body!.pipeThrough(new TextDecoderStream())) {
@@ -34,11 +34,11 @@ for await (const chunk of stream.body!.pipeThrough(new TextDecoderStream())) {
 		} else if (e.type === "action.required") {
 			console.log(`⏸ waiting: ${e.title}${e.code ? ` [code ${e.code}]` : ""}`);
 			if (e.kind === "device-signin") {
-				// Maya opens the company's page on her own device, checks the code, approves.
+				// The customer opens the company's page on their own device, checks the code, approves.
 				const page = new URL(e.link!);
 				page.search = "";
-				const form = await maya.enterUserCode(page.toString(), e.code!);
-				await maya.decide(form, "approve");
+				const form = await person.enterUserCode(page.toString(), e.code!);
+				await person.decide(form, "approve");
 			} else if (e.kind === "approve-operation") {
 				await fetch(`${inspector}/api/runs/${runId}/decision`, { method: "POST", headers: { ...headers, "content-type": "application/json" }, body: JSON.stringify({ decision }) });
 			} else console.log("  (needs a person on the company's page: not simulated)");

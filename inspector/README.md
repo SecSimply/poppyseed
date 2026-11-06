@@ -52,10 +52,10 @@ The agent's identity is hosted by this server on its own HTTPS origin, so the ta
 | `INSPECTOR_TOKEN` | 16+ characters. A shared token for scripts, and a fallback while Curity is not set up. Unset it to make Curity the only way in. Production needs OIDC or this. |
 | `INSPECTOR_PUBLIC_URL` | This server's public origin (default: `RAILWAY_PUBLIC_DOMAIN`, else localhost). It becomes the agent's `client_id`. |
 | `INSPECTOR_REVEAL=1` | Show tokens and assertions unredacted. Off by default. |
-| `PUBLIC_TOOL`, `PUBLIC_TOOL_ARGS` | The tool for the "call a public tool" step (JSON arguments). Defaults to the demo's `search_flights`; skipped if the target has no such tool. |
+| `PUBLIC_TOOL`, `PUBLIC_TOOL_ARGS` | The tool for the "call a public tool" step (JSON arguments). Default `get_rates` with `{"product":"savings"}`; skipped if the target has no such tool. |
 | `SIGNIN_SCOPES` | Scopes to request at sign-in. Defaults to the demo's, else every scope the site offers. |
-| `SCOPED_TOOL`, `SCOPED_TOOL_ARGS` | The tool for "call a scoped tool". Default `my_trips`. |
-| `OPERATION_TOOL`, `OPERATION_ARGS` | The tool that proposes an operation. Default `book_flight`, with the first offer from the public tool's results. |
+| `SCOPED_TOOL`, `SCOPED_TOOL_ARGS` | The tool for "call a scoped tool". Default `list_accounts`. |
+| `OPERATION_TOOL`, `OPERATION_ARGS` | The tool that proposes an operation. Default a small payment to one of Protea Bank's saved payees. `OPERATIONS` offers several to choose between. |
 | `BROWSE_PATHS` | Pages the browse step loads, space- or comma-separated, each starting with `/` (default `/`). |
 | `CHAT_QUESTION`, `CHAT_ACCOUNT_QUESTION` | What the chat steps say to the company's agent: signed out (default `What can you help me with?`) and signed in (default `What are my balances?`). |
 | `OPERATIONS` | A JSON list of `{label, tool, arguments}` operations the longer run can propose. The person picks one before running. When set, it replaces `OPERATION_TOOL` and `OPERATION_ARGS`. |

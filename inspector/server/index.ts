@@ -35,16 +35,16 @@ if (production && !oidc && token.length < 16) throw new Error("Set OIDC_* (sign 
 const redact = process.env.INSPECTOR_REVEAL !== "1";
 const clientId = `${publicUrl}/agent/client.json`;
 
-/** Tools for the journey's steps. The defaults are the Poppy Travel demo's; a step is skipped when the target has no such tool. */
+/** Tools for the journey's steps. The defaults are Protea Bank's; a step is skipped when the target has no such tool. */
 const json_env = (name: string): Record<string, unknown> | undefined => (process.env[name] ? (JSON.parse(process.env[name]!) as Record<string, unknown>) : undefined);
 const publicTool = {
-	name: process.env.PUBLIC_TOOL ?? "search_flights",
-	arguments: json_env("PUBLIC_TOOL_ARGS") ?? { from: "SFO", to: "LIS", date: new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10) },
+	name: process.env.PUBLIC_TOOL ?? "get_rates",
+	arguments: json_env("PUBLIC_TOOL_ARGS") ?? { product: "savings" },
 };
 const operations = parseOperations(process.env);
 const signInOptions = (operation: OperationPreset) => ({
 	scopes: process.env.SIGNIN_SCOPES,
-	scopedTool: { name: process.env.SCOPED_TOOL ?? "my_trips", arguments: json_env("SCOPED_TOOL_ARGS") ?? {} },
+	scopedTool: { name: process.env.SCOPED_TOOL ?? "list_accounts", arguments: json_env("SCOPED_TOOL_ARGS") ?? {} },
 	operation: { name: operation.name, arguments: operation.arguments },
 	// A demonstration of the difference between an operation the company lets an agent do and one it keeps for the person.
 	standingPermission: process.env.STANDING_PERMISSION === "1",

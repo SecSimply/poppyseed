@@ -2,7 +2,7 @@
 
 The easiest way to implement the Personal Agent Protocol (Poppy for short; we write PAP only in internal names like `spec/pap-0.3`) in Next.js: `npm install poppyseed`. pnpm monorepo, Node 22. In the repo, Node runs the TypeScript sources directly and vitest tests them; `pnpm pack` compiles the package to `dist/` for npm (`publishConfig` points the published exports there).
 
-The website is https://withpoppyseed.dev: `site/`, with the docs at `/docs`. User-facing docs and READMEs assume the package comes from npm: `npm install poppyseed`, `npx poppyseed agent`, `npx poppyseed check`. Never put monorepo commands (`pnpm --filter …`) or repo-internal paths in them; link into the repository with full GitHub URLs.
+The project's website is https://withpoppyseed.dev (kept upstream, not in this repository); the docs are in `docs/`. User-facing docs and READMEs assume the package comes from npm: `npm install poppyseed`, `npx poppyseed agent`, `npx poppyseed check`. Never put monorepo commands (`pnpm --filter …`) or repo-internal paths in them; link into the repository with full GitHub URLs.
 
 ## Commands
 
@@ -10,7 +10,7 @@ Node 22, pnpm 10. `pnpm install` once, then:
 
 | Command | What it does |
 | --- | --- |
-| `pnpm dev` | The site and the demo company at http://localhost:3000. |
+| `pnpm dev` | Protea Bank at http://localhost:3000. |
 | `pnpm verify` | The gate below. Run it before every commit. |
 | `pnpm verify:full` | `pnpm verify`, plus `pnpm e2e` and `pnpm mutants`. |
 | `pnpm --filter poppyseed test` | Core's unit tests alone, while iterating. |
@@ -29,8 +29,8 @@ Node 22, pnpm 10. `pnpm install` once, then:
   - `scripts/`: `spec.ts`, `mutants.ts` and `mutants.data.ts` (repo tooling, not published).
 - `fixtures/reference` is the reference company: every feature on, with test accounts and hooks. Its `test/conformance.test.ts` runs the suite in-process; the fixture app serves it over HTTP.
 - `fixtures/next-app` serves the reference company through `poppyseed/next`. `pnpm e2e` and the `verify` skill drive it over HTTP.
-- `site` is one Next.js app: the landing page, the docs (rendered from `docs/`), the scripted demo journey the video is recorded from (`lib/demo/`) and Poppy Travel, a demo company, under `/travel`. It is documentation, not a test target.
-- `video` is the demo video, a Remotion composition: install, describe a tool, add the route, an agent calls it, approvals, proof. Its proof numbers and the booking it shows come from `video/src/transcript.json`, which `pnpm --filter poppyseed-site record` writes from a live run and the latest `pnpm e2e` report. `pnpm --filter poppyseed-video render` writes `site/public/demo.mp4`.
+- `nova` is Protea Bank, a fictional South African bank on `poppyseed/next` that shows sign-in, human approval, support chat, browsing and blocking. Its `scripts/check-local.ts` runs `poppyseed check` against a local build. It is a demonstration, not a test target.
+- `inspector` is the Poppy Inspector: a React and Node tool that runs a real `TestAgent` against one site and shows every request. It targets Protea Bank by default.
 
 ## Skills
 

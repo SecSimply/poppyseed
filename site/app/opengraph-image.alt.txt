@@ -1,1 +1,0 @@
-Poppyseed: Let personal agents use your site. Implements the Personal Agent Protocol in Next.js. npm install poppyseed

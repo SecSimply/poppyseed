@@ -39,15 +39,15 @@ Scope today: one target site (our own Railway deployment), one agent identity, o
 | excluded | the excluded-tasks document, read before anything else is attempted (spec 8.1); no token (skipped if there is none) | no |
 | session | JWT-bearer grant with a client assertion, DPoP-bound | no |
 | tools | MCP `tools/list` with a token bound to the MCP resource | no |
-| call | a public tool over MCP (default `search_flights`) | no |
+| call | a public tool over MCP (default `get_rates`) | no |
 | chat | a question to the company's agent, answered from the events (skipped if the company has none) | no |
 | chat-excluded | asks the company's agent for the first excluded task, to see it decline | no |
 | signin | Device Sign-In: link and code shown, the inspector polls | yes: approves on the company's page |
-| account | a scoped tool over the HTTP API (default `my_trips`) | no |
+| account | a scoped tool over the HTTP API (default `list_accounts`) | no |
 | browse | the agent's browser joins the Session and loads `BROWSE_PATHS`, reporting each page's status and text | no |
 | chat-account | a question about the account, in a new conversation with the signed-in token | no |
 | handoff | asks for a person and leaves the conversation open for staff | no |
-| propose | an action tool returns an operation (default `book_flight`) | no |
+| propose | an action tool returns an operation (default a small payment at Protea Bank) | no |
 | approve | the person approves or declines; the agent confirms or cancels | yes: in the UI. With `STANDING_PERMISSION=1`, not for an operation the company lets an agent do |
 | signout | revokes the Account Token | no |
 
@@ -101,8 +101,8 @@ The login state is bound to the browser that started it by a short-lived cookie 
 **14. The steps assume Poppyseed's own paths.**
 Signed-in tool calls go to `/poppy/tools/<name>` (from `poppyseed/paths`), as the repo's demo journey does. It makes the inspector a Poppyseed debugger first. Reaching other implementations would mean reading the OpenAPI description instead (see next steps).
 
-**15. Defaults are the Poppy Travel demo's, and a step is skipped when the target lacks the tool.**
-`search_flights`, `my_trips`, `book_flight` are overridable by environment variable. A site with other tools sees those steps skipped, not failed.
+**15. Defaults are Protea Bank's, and a step is skipped when the target lacks the tool.**
+`get_rates`, `list_accounts` and a payment are overridable by environment variable. A site with other tools sees those steps skipped, not failed.
 
 **16. The token decoder sends claims, never tokens.**
 The decoder runs on the server and the browser receives each token's header, its claims and the checks, never the signature. An assertion without its signature cannot be replayed, so reading one exposes no credential. Private members of a key in a header are masked too (a deliberately leaked key in a fault test would otherwise be relayed). This replaces the earlier plan for a per-value reveal of redacted tokens: nothing needs revealing. *Alternative: send the token and decode in the browser. Rejected: the credential would be in the browser, and the global reveal switch was already the only thing standing between it and the screen.*
@@ -133,13 +133,14 @@ Whether a company refuses an agent is not something the inspector can test by ch
 
 ## Deployment
 
-Railway project `poppyseed`, three services built from the fork (`SecSimply/poppyseed`) with Railpack:
+Railway project `poppyseed`, services built from the fork (`SecSimply/poppyseed`) with Railpack:
 
 | Service | Purpose | Notes |
 | --- | --- | --- |
-| `poppyseed-site` | the demo site, production settings | `memoryStore()`: one instance, state resets on restart |
+| `nova-bank` | Protea Bank, the demo company the Inspector targets | `memoryStore()`: one instance, state resets on restart |
+| `poppyseed-site` | the former Poppy Travel demo site; its code is gone from the repository and the service can be removed | `memoryStore()`: one instance, state resets on restart |
 | `poppyseed-staging` | the same code with `POPPYSEED_ALLOW_LOOPBACK_AGENTS=1` | for running `poppyseed check` from inside the container; do not point anything real at it |
-| `poppyseed-inspector` | this tool | targets `poppyseed-site`; Curity login, token fallback |
+| `poppyseed-inspector` | this tool | targets `nova-bank`; Curity login, token fallback |
 
 Build and start commands are set as `RAILPACK_BUILD_CMD` and `RAILPACK_START_CMD` variables: Railpack fails at detection on the monorepo root otherwise. Deploys so far have been `railway up` from a local clone, because linking the GitHub repo from the CLI returned "Unauthorized"; pushes do not redeploy until the repo is connected in the dashboard.
 

@@ -5,6 +5,9 @@ export interface OperationPreset {
 	arguments?: Record<string, unknown>;
 }
 
+/** What a run proposes when nothing is configured: Protea Bank's smallest demonstration payment. */
+const DEFAULT: OperationPreset = { label: "Pay Boland Power R10,00", name: "pay_payee", arguments: { payee_id: "pye_thandi_energy", from_account_id: "acc_thandi_everyday", amount: "10.00", reference: "inspector" } };
+
 const object = (text: string, name: string): Record<string, unknown> => {
 	const value: unknown = JSON.parse(text);
 	if (typeof value !== "object" || value === null || Array.isArray(value)) throw new Error(`${name} must be a JSON object`);
@@ -13,12 +16,12 @@ const object = (text: string, name: string): Record<string, unknown> => {
 
 /**
  * OPERATIONS is a JSON list of {label, tool, arguments} the person picks from. Without it, OPERATION_TOOL and
- * OPERATION_ARGS give the one, which defaults to the Poppy Travel demo's.
+ * OPERATION_ARGS give the one, which defaults to a small payment at Protea Bank.
  */
 export function parseOperations(env: Record<string, string | undefined>): OperationPreset[] {
 	if (!env.OPERATIONS) {
-		const name = env.OPERATION_TOOL ?? "book_flight";
-		return [{ label: name, name, arguments: env.OPERATION_ARGS ? object(env.OPERATION_ARGS, "OPERATION_ARGS") : undefined }];
+		const name = env.OPERATION_TOOL ?? DEFAULT.name;
+		return [{ label: env.OPERATION_TOOL ?? DEFAULT.label, name, arguments: env.OPERATION_ARGS ? object(env.OPERATION_ARGS, "OPERATION_ARGS") : env.OPERATION_TOOL ? undefined : DEFAULT.arguments }];
 	}
 	const listed: unknown = JSON.parse(env.OPERATIONS);
 	if (!Array.isArray(listed) || listed.length === 0 || listed.length > 10) throw new Error("OPERATIONS must be a JSON list of 1 to 10 operations");

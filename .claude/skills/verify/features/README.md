@@ -18,7 +18,7 @@ The maintained source for proving each part of the Personal Agent Protocol throu
 
 - Quote the run directory and the summary line.
 - A check skipped for a missing hook is not verified. Say which hook.
-- Do not report a feature verified through `site/` (Poppy Travel) or the in-process suite alone.
+- Do not report a feature verified through `nova/` (Protea Bank) or the in-process suite alone.
 
 ## Features
 

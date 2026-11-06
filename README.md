@@ -96,7 +96,8 @@ Also at [withpoppyseed.dev/docs](https://withpoppyseed.dev/docs).
 | --- | --- |
 | `packages/core` | The `poppyseed` package. |
 | `fixtures/` | The reference company the checks run against. |
-| `site/`, `video/` | withpoppyseed.dev (with the Poppy Travel demo) and its video. |
+| `nova/` | Protea Bank, a fictional South African bank that demonstrates sign-in, approvals, support chat, browsing and blocking. |
+| `inspector/` | The Poppy Inspector, a protocol debugger that runs a real agent against a site and shows every request. |
 | `spec/` | The official text, its numbered requirements, and [what verifies each](spec/STATUS.md). |
 
 ```sh

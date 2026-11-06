@@ -11,7 +11,6 @@ interface Tool {
 	inputSchema?: unknown;
 }
 
-type Offer = { offer_id: string; price?: { amount: string } };
 type Call = { name: string; arguments: Record<string, unknown> };
 
 export interface JourneyOptions {
@@ -28,11 +27,11 @@ export interface JourneyOptions {
 	browse?: string[];
 	/** Set to run the sign-in and operation steps: they need a person to approve in their own browser. */
 	signIn?: {
-		/** Space-separated scopes to ask for. Defaults to the demo's, or every scope the site offers. */
+		/** Space-separated scopes to ask for. Defaults to every scope the site offers. */
 		scopes?: string;
 		/** A tool that needs the signed-in account. */
 		scopedTool: Call;
-		/** An action tool that proposes an operation. Arguments default from the public tool's first offer when it is book_flight. */
+		/** An action tool that proposes an operation, with its arguments. */
 		operation: { name: string; arguments?: Record<string, unknown> };
 		/** The person has pre-approved operations the company doesn't require their own approval for. */
 		standingPermission?: boolean;
@@ -74,8 +73,6 @@ const sleep = (ms: number, signal: AbortSignal) =>
 		signal.addEventListener("abort", onAbort, { once: true });
 	});
 
-const DEMO_SCOPES = ["trips:read", "trips:write"];
-
 /**
  * The journey: discover, start a Session, list tools over MCP, call a public tool; then, when asked, sign a person
  * in (Device Sign-In), call a scoped tool, propose an operation, wait for the person's decision, and sign out.
@@ -94,7 +91,6 @@ export async function runJourney(agent: TestAgent, options: JourneyOptions): Pro
 	let session: TokenResponse | undefined;
 	let mcp: { url: string; token: string } | undefined;
 	let tools: Tool[] = [];
-	let offers: Offer[] = [];
 	let signedIn: TokenResponse | undefined;
 	let operation: Operation | undefined;
 	let conversationId: string | undefined;
@@ -166,9 +162,8 @@ export async function runJourney(agent: TestAgent, options: JourneyOptions): Pro
 			async () => {
 				const m = need(mcp, "MCP token");
 				if (!publicTool || !hasTool(publicTool.name)) return "skipped";
-				const result = await agent.mcp<{ isError?: boolean; structuredContent?: { offers?: Offer[] }; content?: { text?: string }[] }>(m.url, m.token, "tools/call", { name: publicTool.name, arguments: publicTool.arguments });
+				const result = await agent.mcp<{ isError?: boolean; structuredContent?: unknown; content?: { text?: string }[] }>(m.url, m.token, "tools/call", { name: publicTool.name, arguments: publicTool.arguments });
 				if (result.isError) throw new Error(`${publicTool.name} returned an error: ${JSON.stringify(result.content)}`);
-				offers = result.structuredContent?.offers ?? [];
 				return [`${publicTool.name}(${JSON.stringify(publicTool.arguments)})`, JSON.stringify(result.structuredContent ?? result.content ?? result).slice(0, 300)];
 			},
 		],
@@ -202,8 +197,7 @@ export async function runJourney(agent: TestAgent, options: JourneyOptions): Pro
 					const c = need(company, "discovery");
 					if (!c.metadata.device_authorization_endpoint) throw new Error("the company does not offer Device Sign-In");
 					const supported = c.metadata.scopes_supported ?? [];
-					const demo = DEMO_SCOPES.filter((s) => supported.includes(s));
-					const scope = signIn.scopes ?? (demo.length ? demo : supported).join(" ");
+					const scope = signIn.scopes ?? supported.join(" ");
 					const device = await agent.deviceAuthorization(scope);
 					// Spec 4.6: show a link only if it is on the company's own domain, so a hostile response can't send the person elsewhere.
 					const shown = [device.verification_uri_complete, device.verification_uri].find((u) => u && agent.mayShowVerificationUri(u));
@@ -281,11 +275,7 @@ export async function runJourney(agent: TestAgent, options: JourneyOptions): Pro
 				"Propose an operation",
 				async () => {
 					if (!hasTool(signIn.operation.name)) return "skipped";
-					const args =
-						signIn.operation.arguments ??
-						(signIn.operation.name === "book_flight" && offers.length
-							? { offer_id: (offers.find((o) => Number(o.price?.amount ?? Infinity) <= 1000) ?? offers[0])!.offer_id, traveler_name: "Inspector Test" }
-							: undefined);
+					const args = signIn.operation.arguments;
 					if (!args) throw new Error(`no arguments for ${signIn.operation.name}: set OPERATION_ARGS`);
 					const body = await callTool(signIn.operation.name, args);
 					operation = body.operation as Operation | undefined;
