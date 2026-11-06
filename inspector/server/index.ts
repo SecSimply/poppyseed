@@ -18,6 +18,7 @@ import { capture, type Knowledge } from "./capture.ts";
 import { FAULTS, faultInfo, runFault } from "./faults.ts";
 import { runJourney } from "./journey.ts";
 import { parseOperations, type OperationPreset } from "./presets.ts";
+import { parsePaths } from "./browse.ts";
 import { BadCallback, NotAllowed, Oidc, oidcFromEnv } from "./oidc.ts";
 
 const port = Number(process.env.PORT ?? 3001);
@@ -50,6 +51,9 @@ const signInOptions = (operation: OperationPreset) => ({
 });
 
 /** What the chat steps say to the company's agent. They are skipped when the target has no conversations. */
+/** Pages the agent's browser loads in the browse step (BROWSE_PATHS, space-separated), after joining its Session. */
+const browsePaths = parsePaths(process.env.BROWSE_PATHS);
+
 const chat = { hello: process.env.CHAT_QUESTION ?? "What can you help me with?", account: process.env.CHAT_ACCOUNT_QUESTION ?? "What are my balances?" };
 
 /** A 1x1 transparent PNG. */
@@ -75,19 +79,21 @@ const emit = (run: Run) => (event: ProtocolEvent) => {
 /** What the current run has found out, for the JWT checks. Reset when a run starts. */
 const knowledge: Knowledge = {};
 
+/** Every request the agent, and the browser it opens, makes goes through here, so the run shows all of them. */
+const seen = capture(
+	globalThis.fetch.bind(globalThis),
+	(event) => active && emit(active.run)(event),
+	() => active?.step ?? "",
+	redact,
+	knowledge,
+);
+
 const agent = await TestAgent.create({
 	clientId,
 	clientName: "Poppy Inspector",
 	allowInsecure: target.startsWith("http://"),
 	extensions: { operations: { version: "1" } },
-	fetch: (input, init) =>
-		capture(
-			globalThis.fetch.bind(globalThis),
-			(event) => active && emit(active.run)(event),
-			() => active?.step ?? "",
-			redact,
-			knowledge,
-		)(input, init),
+	fetch: seen,
 });
 
 function startRun(signIn: boolean, faultId?: string, operation: OperationPreset = operations[0]!): Run {
@@ -110,7 +116,7 @@ function startRun(signIn: boolean, faultId?: string, operation: OperationPreset 
 	const fault = FAULTS.find((f) => f.id === faultId);
 	void (fault
 		? runFault(agent, fault, { target, emit: send, setStep, onDiscovered })
-		: runJourney(agent, { target, emit: send, setStep, publicTool, chat, signIn: signIn ? signInOptions(operation) : undefined, decide, signal: run.abort.signal, onDiscovered })
+		: runJourney(agent, { target, emit: send, setStep, publicTool, chat, fetch: seen, browse: browsePaths, signIn: signIn ? signInOptions(operation) : undefined, decide, signal: run.abort.signal, onDiscovered })
 	)
 		.catch((error) => {
 			send({ type: "step.end", step: active?.step ?? "", ok: false, summary: [], error: String(error), at: Date.now() });

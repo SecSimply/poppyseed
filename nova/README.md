@@ -2,7 +2,7 @@
 
 A fictional South African bank, headquartered in Paarl, that shows what a personal agent can do with the Personal Agent Protocol. It is a Poppyseed site, like Poppy Travel in `site/`, with a banking theme and a short list of services. Amounts are in South African rand (ZAR). Nothing here is real: no money, accounts or people. The directory and package keep the earlier name, `nova` and `nova-bank`, so the Railway services and their settings are unchanged.
 
-**Status:** phase 6 of 8. Rates, branches, accounts, balances, transactions, payments, a support chat, browsing, excluded tasks and blocking work, with Direct and Device Sign-In and separate scopes. Inspector steps for them, and the conformance profile, come next. The plan is in the project history; each phase adds one capability.
+**Status:** phase 7 of 8. The Inspector has steps for the excluded tasks, browsing, and a blocked run, and [DEMO.md](DEMO.md) is a script for showing all five capabilities. Rates, branches, accounts, balances, transactions, payments, a support chat, browsing, excluded tasks and blocking work, with Direct and Device Sign-In and separate scopes. The conformance profile and hardening come next. The plan is in the project history; each phase adds one capability.
 
 | Service | Shows | Phase |
 | --- | --- | --- |
@@ -46,6 +46,8 @@ PUBLIC_TOOL=get_rates          PUBLIC_TOOL_ARGS={"product":"savings"}
 SIGNIN_SCOPES=accounts:read transactions:read
 SCOPED_TOOL=list_accounts
 ```
+
+To show browsing, set `BROWSE_PATHS=/account /payments /payees /staff` (the last is there to show an agent's browser getting a 404). The excluded-tasks and blocked-agent steps need no settings.
 
 To try the chat, set `CHAT_QUESTION` (what the anonymous chat step asks, for example `What are your savings rates?`) and `CHAT_ACCOUNT_QUESTION` (asked after sign-in, default `What are my balances?`) on the Inspector.
 

@@ -1,7 +1,8 @@
 import { PATHS } from "poppyseed/paths";
-import { PapError, readBody, type Discovery, type Operation, type TestAgent, type TokenResponse } from "poppyseed/agent";
+import { Browser, PapError, readBody, type Discovery, type Fetch, type Operation, type TestAgent, type TokenResponse } from "poppyseed/agent";
 import type { ProtocolEvent } from "../shared/events.ts";
 import { approveOperation } from "./approval.ts";
+import { browse } from "./browse.ts";
 import { askForPerson, askSupport } from "./chat.ts";
 
 interface Tool {
@@ -21,6 +22,10 @@ export interface JourneyOptions {
 	publicTool?: Call;
 	/** What to say to the company's agent. Without it, or when the company has none, the chat steps are skipped. */
 	chat?: { hello: string; account: string };
+	/** The fetch the agent uses, so the browser the browse step opens is seen like everything else. */
+	fetch?: Fetch;
+	/** Pages the agent's browser loads once it has joined its Session. Without a company website to join, the step is skipped. */
+	browse?: string[];
 	/** Set to run the sign-in and operation steps: they need a person to approve in their own browser. */
 	signIn?: {
 		/** Space-separated scopes to ask for. Defaults to the demo's, or every scope the site offers. */
@@ -78,6 +83,7 @@ const DEMO_SCOPES = ["trips:read", "trips:write"];
  */
 export async function runJourney(agent: TestAgent, options: JourneyOptions): Promise<boolean> {
 	const { target, emit, setStep, publicTool, chat, signIn, decide, signal } = options;
+	const siteFetch = options.fetch ?? globalThis.fetch.bind(globalThis);
 	const step = makeStep(emit, setStep);
 	const need = <T>(value: T | undefined, what: string): T => {
 		if (value === undefined) throw new Error(`no ${what}`);
@@ -92,6 +98,7 @@ export async function runJourney(agent: TestAgent, options: JourneyOptions): Pro
 	let signedIn: TokenResponse | undefined;
 	let operation: Operation | undefined;
 	let conversationId: string | undefined;
+	let excluded: { task: string }[] = [];
 	const hasTool = (name: string) => tools.some((t) => t.name === name);
 
 	/** A signed-in call to one of the site's tools over its HTTP API. */
@@ -116,6 +123,21 @@ export async function runJourney(agent: TestAgent, options: JourneyOptions): Pro
 					`apis: ${(company.poppy.apis ?? []).map((a) => a.type).join(", ") || "none"}`,
 					`extensions: ${Object.keys(company.poppy.extensions ?? {}).join(", ") || "none"}`,
 					`scopes: ${Object.keys(company.poppy.auth?.scopes ?? {}).join(", ") || "none"}`,
+				];
+			},
+		],
+		[
+			"excluded",
+			"Read the tasks it won't offer",
+			async () => {
+				// Spec 8.1: read before starting on a task. No token is needed, and the document is the same for everyone.
+				if (!agent.endpoints.excludedTasks) return "skipped";
+				const { tasks } = await agent.excludedTasks();
+				excluded = tasks;
+				if (!tasks.length) return ["the company lists no excluded tasks"];
+				return [
+					`${tasks.length} task${tasks.length === 1 ? "" : "s"} the company does not offer an agent`,
+					...tasks.map((t) => `• ${t.task}${t.alternative?.instructions ? ` — ${t.alternative.instructions.slice(0, 160)}${t.alternative.instructions.length > 160 ? "…" : ""}` : " (no alternative given)"}`),
 				];
 			},
 		],
@@ -156,6 +178,16 @@ export async function runJourney(agent: TestAgent, options: JourneyOptions): Pro
 			async () => {
 				if (!chat || !agent.endpoints.conversations) return "skipped";
 				const talk = await askSupport(agent, need(session, "Session").access_token, chat.hello);
+				return [...talk.lines, `conversation ${talk.conversationId}: ${talk.status}, handled by ${talk.responder}`];
+			},
+		],
+		[
+			"chat-excluded",
+			"Ask it for a task it won't offer",
+			async () => {
+				// The company's agent must not offer a listed task either (spec 8.1): it should decline and say where to do it.
+				if (!chat || !agent.endpoints.conversations || !excluded.length) return "skipped";
+				const talk = await askSupport(agent, need(session, "Session").access_token, excluded[0]!.task);
 				return [...talk.lines, `conversation ${talk.conversationId}: ${talk.status}, handled by ${talk.responder}`];
 			},
 		],
@@ -216,6 +248,17 @@ export async function runJourney(agent: TestAgent, options: JourneyOptions): Pro
 					if (!hasTool(signIn.scopedTool.name)) return "skipped";
 					const body = await callTool(signIn.scopedTool.name, signIn.scopedTool.arguments);
 					return [`${signIn.scopedTool.name}(${JSON.stringify(signIn.scopedTool.arguments)})`, JSON.stringify(body).slice(0, 300)];
+				},
+			],
+			[
+				"browse",
+				"Browse the site as the agent",
+				async () => {
+					if (!agent.endpoints.browserSession || !options.browse) return "skipped";
+					const key = need(signedIn?.session, "Session Key");
+					const browser = new Browser(siteFetch);
+					const lines = await browse({ target, join: () => agent.joinBrowser(browser, key), get: (url) => browser.request(url) }, options.browse);
+					return [`signed in with: ${signedIn?.scope ?? "no scope"}`, ...lines];
 				},
 			],
 			[

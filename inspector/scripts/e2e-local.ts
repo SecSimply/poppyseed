@@ -29,7 +29,7 @@ for await (const chunk of stream.body!.pipeThrough(new TextDecoderStream())) {
 		const e = JSON.parse(line) as ProtocolEvent;
 		if (e.type === "http") console.log(`  ${e.step.padEnd(8)} ${e.request.method.padEnd(4)} ${new URL(e.request.url).pathname} → ${e.response?.status ?? e.error}`);
 		else if (e.type === "step.end") {
-			console.log(`${e.ok ? "✓" : "✗"} ${e.step}${e.error ? `: ${e.error.slice(0, 300)}` : ""}${e.summary.length ? `\n    ${e.summary.join("\n    ").slice(0, 400)}` : ""}`);
+			console.log(`${e.ok ? "✓" : "✗"} ${e.step}${e.error ? `: ${e.error.slice(0, 300)}` : ""}${e.summary.length ? `\n    ${e.summary.join("\n    ").slice(0, 1500)}` : ""}`);
 			failed ||= !e.ok;
 		} else if (e.type === "action.required") {
 			console.log(`⏸ waiting: ${e.title}${e.code ? ` [code ${e.code}]` : ""}`);

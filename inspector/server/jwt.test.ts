@@ -19,6 +19,17 @@ const ctx = (over: Partial<RequestContext> = {}): RequestContext => ({ method: "
 const failing = (jwts: ReturnType<typeof inspectJwts>) => jwts.flatMap((j) => j.checks.filter((c) => c.status === "fail").map((c) => `${j.kind}/${c.name}`));
 const form = (fields: Record<string, string>) => ({ body: new URLSearchParams(fields).toString(), contentType: "application/x-www-form-urlencoded" });
 
+describe("the proof a browser posts to join a Session", () => {
+	it("is decoded and held to the DPoP rules, like one in a header", async () => {
+		const joinUrl = `${ISSUER}/poppy/browser-session`;
+		const jwts = inspectJwts(ctx({ url: joinUrl, ...form({ code: "bc_123", proof: await proof({ htu: joinUrl, nonce: "bc_123" }) }) }));
+		expect(jwts).toHaveLength(1);
+		expect(jwts[0]).toMatchObject({ where: "proof", kind: "DPoP proof" });
+		expect(failing(jwts)).toEqual([]);
+		expect(jwts[0]!.claims.nonce).toBe("bc_123");
+	});
+});
+
 describe("DPoP proofs", () => {
 	it("passes a valid proof on every check", async () => {
 		const [jwt] = inspectJwts(ctx({ headers: { dpop: await proof() } }));

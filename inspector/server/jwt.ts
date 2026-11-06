@@ -108,7 +108,7 @@ export function inspectJwts(ctx: RequestContext): DecodedJwt[] {
 	if (ctx.headers.dpop) found.push({ where: "DPoP header", kind: "DPoP proof", jwt: ctx.headers.dpop });
 	let form: URLSearchParams | undefined;
 	if (ctx.contentType.includes("x-www-form-urlencoded")) form = new URLSearchParams(ctx.body);
-	for (const [field, kind] of [["client_assertion", "Client assertion"], ["assertion", "Session assertion"]] as const) {
+	for (const [field, kind] of [["client_assertion", "Client assertion"], ["assertion", "Session assertion"], ["proof", "DPoP proof"]] as const) {
 		const value = form?.get(field);
 		if (value) found.push({ where: field, kind, jwt: value });
 	}

@@ -22,6 +22,17 @@ describe("hintsFor", () => {
 		expect(hintsFor(401, json("invalid_client", "assertion signature or claims are invalid"), {}).join(" ")).toMatch(/restarted[\s\S]*cache[\s\S]*30 seconds/);
 	});
 
+	it("says a blocked agent is the company's decision, and does not send the developer to check keys", () => {
+		const hints = hintsFor(401, json("invalid_client", "client is blocked"), {});
+		expect(hints).toHaveLength(1);
+		expect(hints[0]).toMatch(/blocked[\s\S]*company's decision/);
+		expect(hints.join(" ")).not.toMatch(/JWKS|restarted/);
+	});
+
+	it("says an unregistered agent needs registering", () => {
+		expect(hintsFor(401, json("invalid_client", "this personal agent is not registered with this company"), {}).join(" ")).toMatch(/clients\.allow[\s\S]*Ask the company to register/);
+	});
+
 	it("reads the error from WWW-Authenticate when the body has none", () => {
 		expect(hintsFor(401, "", { "www-authenticate": 'DPoP error="invalid_token"' }).join(" ")).toMatch(/expired|revoked/);
 	});

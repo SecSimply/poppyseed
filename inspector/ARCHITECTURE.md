@@ -36,19 +36,22 @@ Scope today: one target site (our own Railway deployment), one agent identity, o
 | Step | What happens | Needs a person |
 | --- | --- | --- |
 | discover | `poppy.json` and the authorization server metadata | no |
+| excluded | the excluded-tasks document, read before anything else is attempted (spec 8.1); no token (skipped if there is none) | no |
 | session | JWT-bearer grant with a client assertion, DPoP-bound | no |
 | tools | MCP `tools/list` with a token bound to the MCP resource | no |
 | call | a public tool over MCP (default `search_flights`) | no |
 | chat | a question to the company's agent, answered from the events (skipped if the company has none) | no |
+| chat-excluded | asks the company's agent for the first excluded task, to see it decline | no |
 | signin | Device Sign-In: link and code shown, the inspector polls | yes: approves on the company's page |
 | account | a scoped tool over the HTTP API (default `my_trips`) | no |
+| browse | the agent's browser joins the Session and loads `BROWSE_PATHS`, reporting each page's status and text | no |
 | chat-account | a question about the account, in a new conversation with the signed-in token | no |
 | handoff | asks for a person and leaves the conversation open for staff | no |
 | propose | an action tool returns an operation (default `book_flight`) | no |
 | approve | the person approves or declines; the agent confirms or cancels | yes: in the UI. With `STANDING_PERMISSION=1`, not for an operation the company lets an agent do |
 | signout | revokes the Account Token | no |
 
-The first five run with "Run journey". All eleven run with "Run with sign-in and operations".
+The first seven run with "Run journey". All fourteen run with "Run with sign-in and operations".
 
 **Fault tests** are a separate run: discover, a valid control request, then the broken request or requests. A fault passes when the company refuses it (400, 401 or 403). A request it must refuse but accepts fails the run, and so does a 5xx, which is the company failing and not refusing.
 
@@ -121,6 +124,12 @@ A company's agent may answer a moment after accepting a message, so the step rea
 
 **22. Hints are a static table keyed by error code.**
 Advice is selected by the error code and narrowed by patterns in the description, and the description is never echoed into the page. A code the table does not know gets no hint rather than a guess.
+
+**23. The browse step uses the real `Browser` through the captured fetch.**
+The agent's browser is the library's own `Browser`, given the same capturing fetch as the agent, so the join (`POST` with the proof) and each page load appear in the request list with their cookies redacted. The proof posted in the `proof` field is decoded like a DPoP header. The step keeps only each page's title and the text of its `<main>`, never markup or script, and refuses a path that leaves the company's origin.
+
+**24. A blocked run is a hint, not a step.**
+Whether a company refuses an agent is not something the inspector can test by choosing to; it can only show what happens when it does. `invalid_client` with a description saying the agent is blocked or not registered gets one hint, and not the usual advice about keys and metadata, which would send a developer looking for a fault that is not there. The excluded-tasks step still runs first, since that document is public.
 
 ## Deployment
 

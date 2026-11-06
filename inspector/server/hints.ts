@@ -73,10 +73,23 @@ function parse(status: number, body: string | undefined, headers: Record<string,
 	return { status, error, description, wwwAuthenticate: challenge };
 }
 
+/**
+ * A company that has chosen to refuse this agent says so in the description. No key, assertion or metadata change
+ * helps, and the usual `invalid_client` advice would send a developer looking for a fault that is not there.
+ */
+const REFUSED_BY_CHOICE: [RegExp, string[]][] = [
+	[/blocked/i, ["The company has blocked this agent by its `client_id` (`clients.block`). This is the company's decision, not a fault in your keys or metadata: nothing you change in the assertion will help. Ask the company to unblock the `client_id`."]],
+	[/not registered/i, ["The company only accepts agents it has registered (`clients.allow`), and this `client_id` is not on its list. Ask the company to register it. Your keys and metadata are not the problem."]],
+];
+
 /** Likely causes for a response, or none when it was not a refusal or is not one the inspector knows. */
 export function hintsFor(status: number, body: string | undefined, headers: Record<string, string>): string[] {
 	if (status < 400) return [];
 	const r = parse(status, body, headers);
+	if (r.error === "invalid_client") {
+		const chosen = REFUSED_BY_CHOICE.find(([pattern]) => pattern.test(r.description ?? ""));
+		if (chosen) return chosen[1];
+	}
 	const out = r.error ? [...(BY_CODE[r.error] ?? [])] : [];
 	// Narrower advice first: it names the thing in the description.
 	const narrow = NARROW.filter(([pattern]) => pattern.test(r.description ?? "")).map(([, text]) => text);
