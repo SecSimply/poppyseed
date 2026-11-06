@@ -7,6 +7,7 @@
  * Exits non-zero if a page shows what the Session's scopes do not allow.
  */
 import { Browser, httpAgentHost, PapError } from "poppyseed/agent";
+import { personCookie } from "./person.ts";
 
 const target = process.env.TARGET ?? "http://localhost:3400";
 const fetcher = globalThis.fetch.bind(globalThis);
@@ -24,7 +25,7 @@ const expect = (ok: boolean, what: string) => {
 async function signedIn(scope: string) {
 	const session = await agent.startSession();
 	const device = await agent.deviceAuthorization(scope);
-	const ada = new Browser(fetcher, "pb_session=cus_thandi");
+	const ada = new Browser(fetcher, personCookie("cus_thandi"));
 	await ada.decide(await ada.enterUserCode(device.verification_uri, device.user_code), "approve");
 	for (;;) {
 		try {
@@ -46,7 +47,7 @@ for (const scopes of [["accounts:read"], ["transactions:read"], ["accounts:read"
 	console.log(`\nan agent's browser signed in with: ${scopes.join(" ")}`);
 	const key = await signedIn(scopes.join(" "));
 	// The browser also holds Thandi's site login: the agent's Session must win, and show only its own scopes.
-	const browser = new Browser(fetcher, "pb_session=cus_thandi");
+	const browser = new Browser(fetcher, personCookie("cus_thandi"));
 	const joined = await agent.joinBrowser(browser, key);
 	expect(joined.status === 303, `joined the browser (HTTP ${joined.status})`);
 	const account = await text(browser, "/account");

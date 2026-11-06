@@ -1,62 +1,95 @@
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { poppyseed } from "../../poppyseed.config";
-import { isStaff } from "../../lib/staff";
+import { entries, record } from "../../lib/audit";
 import { block, blocked, unblock } from "../../lib/blocklist";
 import { reports } from "../../lib/feedback";
+import { oidc } from "../../lib/oidc";
+import { sessionFrom } from "../../lib/session";
+import { staffAccess } from "../../lib/staff";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Support", robots: { index: false } };
 
+/** Who is acting, checked afresh by every action: an action can be called without loading the page, so the page's check does not cover it. */
+async function actor(form: FormData) {
+	const who = staffAccess((await cookies()).toString(), form.get("key"));
+	if (!who) throw new Error("not allowed");
+	return who;
+}
+
 /**
- * The support team's inbox for handoffs from personal agents. Open it with ?key= and the value of POPPY_STAFF_KEY.
- * There is no default key in production: without the variable the page does not exist.
+ * The support team's console: handoffs from personal agents, blocked agents and agents' reports. Staff sign in with
+ * Curity (Staff in the menu); anyone not on STAFF_EMAILS is told so. The emergency key, ?key= with the value of
+ * POPPY_STAFF_KEY, still opens it when Curity is unavailable.
  */
 export default async function Staff({ searchParams }: { searchParams: Promise<{ key?: string; id?: string }> }) {
 	const { key, id } = await searchParams;
-	if (!isStaff(key)) notFound();
+	const cookieHeader = (await cookies()).toString();
+	const who = staffAccess(cookieHeader, key);
+	if (!who) {
+		const session = sessionFrom(cookieHeader);
+		if (!session) return oidc ? redirect("/auth/login?as=staff&return_to=/staff") : notFound();
+		return (
+			<main>
+				<header className="hero">
+					<p className="kicker">Support</p>
+					<h1>Not on the staff list</h1>
+					<p className="lede">You are signed in as {session.email ?? session.name ?? "a customer"}, which is not a member of staff. Someone at the bank adds staff by hand. If that should be you, ask them to add this address.</p>
+				</header>
+				<form action="/auth/logout" method="post"><button type="submit" className="secondary">Sign out of Protea Bank</button></form>
+			</main>
+		);
+	}
 	const queue = await poppyseed.conversations.queue();
 	const open = id ? await poppyseed.conversations.get(id) : undefined;
-	const here = `/staff?key=${encodeURIComponent(key)}`;
+	// The key travels in forms and links only when it is how this person got in.
+	const keyField = who.by === "key" && typeof key === "string" ? key : "";
+	const here = who.by === "key" ? `/staff?key=${encodeURIComponent(keyField)}&` : "/staff?";
 
 	// The actions use the imported instance and capture nothing: Next serializes what a server action closes over, and an object of functions cannot be.
-	// Each action checks the key itself: an action can be called without loading the page, so the page's check does not cover it.
 	async function join(form: FormData) {
 		"use server";
-		if (!isStaff(form.get("key"))) throw new Error("not allowed");
+		const me = await actor(form);
 		await poppyseed.conversations.join(String(form.get("id")));
+		record(me, `took ${String(form.get("id"))}`);
 		revalidatePath("/staff");
 	}
 	async function reply(form: FormData) {
 		"use server";
-		if (!isStaff(form.get("key"))) throw new Error("not allowed");
-		await poppyseed.conversations.reply(String(form.get("id")), String(form.get("text")), { author: { id: "aut_support", name: "Protea Bank support" } });
+		const me = await actor(form);
+		await poppyseed.conversations.reply(String(form.get("id")), String(form.get("text")), { author: { id: me.id, name: me.name } });
+		record(me, `replied in ${String(form.get("id"))}`);
 		revalidatePath("/staff");
 	}
 	async function release(form: FormData) {
 		"use server";
-		if (!isStaff(form.get("key"))) throw new Error("not allowed");
+		const me = await actor(form);
 		await poppyseed.conversations.release(String(form.get("id")));
+		record(me, `handed ${String(form.get("id"))} back to the assistant`);
 		revalidatePath("/staff");
 	}
-
 	async function blockClient(form: FormData) {
 		"use server";
-		if (!isStaff(form.get("key"))) throw new Error("not allowed");
-		block(String(form.get("client_id") ?? ""));
+		const me = await actor(form);
+		const client = String(form.get("client_id") ?? "");
+		if (block(client)) record(me, `blocked ${client}`);
 		revalidatePath("/staff");
 	}
 	async function unblockClient(form: FormData) {
 		"use server";
-		if (!isStaff(form.get("key"))) throw new Error("not allowed");
-		unblock(String(form.get("client_id") ?? ""));
+		const me = await actor(form);
+		const client = String(form.get("client_id") ?? "");
+		unblock(client);
+		record(me, `unblocked ${client}`);
 		revalidatePath("/staff");
 	}
 
 	return (
 		<main>
 			<header className="hero">
-				<p className="kicker">Support</p>
+				<p className="kicker">Support · {who.name}{who.by === "key" ? " (emergency key)" : ""}</p>
 				<h1>Agent handoffs</h1>
 			</header>
 			<section aria-labelledby="waiting">
@@ -67,12 +100,12 @@ export default async function Staff({ searchParams }: { searchParams: Promise<{ 
 						<tbody>
 							{queue.map((c) => (
 								<tr key={c.id}>
-									<td><a href={`${here}&id=${c.id}`}>{c.id}</a></td>
+									<td><a href={`${here}id=${c.id}`}>{c.id}</a></td>
 									<td className="muted">{c.messages.at(-1)?.text?.slice(0, 80)}</td>
 									<td>
 										<form action={join}>
 											<input type="hidden" name="id" value={c.id} />
-											<input type="hidden" name="key" value={key} />
+											<input type="hidden" name="key" value={keyField} />
 											<button type="submit">Take it</button>
 										</form>
 									</td>
@@ -96,13 +129,13 @@ export default async function Staff({ searchParams }: { searchParams: Promise<{ 
 					</div>
 					<form action={reply} className="card">
 						<input type="hidden" name="id" value={open.id} />
-						<input type="hidden" name="key" value={key} />
+						<input type="hidden" name="key" value={keyField} />
 						<textarea name="text" rows={3} required placeholder="Write to the customer" style={{ width: "100%", font: "inherit" }} />
 						<button type="submit">Send</button>
 					</form>
 					<form action={release}>
 						<input type="hidden" name="id" value={open.id} />
-						<input type="hidden" name="key" value={key} />
+						<input type="hidden" name="key" value={keyField} />
 						<button type="submit" className="secondary">Hand back to the assistant</button>
 					</form>
 				</section>
@@ -116,12 +149,12 @@ export default async function Staff({ searchParams }: { searchParams: Promise<{ 
 						<form action={unblockClient} key={id}>
 							<code>{id}</code>
 							<input type="hidden" name="client_id" value={id} />
-							<input type="hidden" name="key" value={key} />
+							<input type="hidden" name="key" value={keyField} />
 							<button type="submit" className="secondary">Unblock</button>
 						</form>
 					))}
 					<form action={blockClient}>
-						<input type="hidden" name="key" value={key} />
+						<input type="hidden" name="key" value={keyField} />
 						<label>Block an agent<br /><input name="client_id" required placeholder="https://agent.example/client.json" /></label>
 						<button type="submit">Block</button>
 					</form>
@@ -145,6 +178,28 @@ export default async function Staff({ searchParams }: { searchParams: Promise<{ 
 					</table>
 				</div>
 			</section>
+			<section aria-labelledby="log">
+				<h2 id="log">What staff have done</h2>
+				{entries.length === 0 && <p className="muted">Nothing yet.</p>}
+				<div className="card scroll">
+					<table className="table">
+						<tbody>
+							{entries.slice(0, 20).map((e) => (
+								<tr key={`${e.at}${e.what}`}>
+									<td className="num">{e.at.slice(0, 16).replace("T", " ")}</td>
+									<td>{e.who}{e.by === "key" ? <span className="muted"> (key)</span> : null}</td>
+									<td>{e.what}</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
+				</div>
+			</section>
+			{who.by === "session" && (
+				<form action="/auth/logout" method="post">
+					<button type="submit" className="secondary">Sign out of Protea Bank</button>
+				</form>
+			)}
 		</main>
 	);
 }

@@ -2,20 +2,15 @@ import { definePoppyseed, memoryStore, OperationFailed, safeFetch, tool, ToolErr
 import { after } from "next/server";
 import { z } from "zod";
 import { accountOf, accountsOf, balanceCents, money, movePayment, needsOwnApproval, OWN_APPROVAL_OVER_CENTS, parseAmount, payeeOf, payeesOf, recordPerformed, transactionsOf, zar } from "./lib/bank.ts";
-import { SITE_COOKIE, siteCustomer } from "./lib/customers.ts";
+import { siteCustomer } from "./lib/customers.ts";
+import { baseUrl, isDev, secret } from "./lib/env.ts";
 import { proteaAgent } from "./lib/support.ts";
 import { BRANCHES, CITIES, RATES } from "./lib/products.ts";
 import { blocked } from "./lib/blocklist.ts";
 import { excludedTasks } from "./lib/excluded.ts";
 import { adviceFor, remember } from "./lib/feedback.ts";
 
-const isDev = process.env.NODE_ENV !== "production";
 const allowLoopback = isDev || process.env.POPPYSEED_ALLOW_LOOPBACK_AGENTS === "1";
-const isBuild = process.env.NEXT_PHASE === "phase-production-build";
-const baseUrl = process.env.POPPYSEED_BASE_URL ?? (isDev || isBuild ? "http://localhost:3000" : undefined);
-if (!baseUrl) throw new Error("Set POPPYSEED_BASE_URL to the public origin in production");
-const secret = process.env.POPPYSEED_SECRET ?? (isDev || isBuild ? "dev-only-secret-change-me-in-production!!" : undefined);
-if (!secret) throw new Error("Set POPPYSEED_SECRET (32+ characters) in production");
 
 const amountField = z.string().describe('Amount in South African rand as a decimal string with a point, for example "1735.00"');
 const referenceField = z.string().max(40).optional().describe("A short note that appears on the statement");
@@ -217,4 +212,3 @@ declare global {
 }
 export const poppyseed = (globalThis.__proteaPoppyseed ??= create());
 
-export { SITE_COOKIE };

@@ -6,8 +6,8 @@ About 15 minutes. It shows five things a personal agent and a company can do wit
 
 - The Inspector, signed in with Curity: `https://poppyseed-inspector-production.up.railway.app`
 - Protea Bank: `https://nova-bank-production-bd33.up.railway.app`
-- A second browser window signed in to Protea Bank as the customer, **Thandi Nkosi** (`/login`, choose Thandi). This is the person.
-- The staff console, `https://nova-bank-production-bd33.up.railway.app/staff?key=…` (the key is the `POPPY_STAFF_KEY` variable on the `nova-bank` Railway service), in a third window.
+- A second browser window (a private window, so it doesn't share cookies) signed in to Protea Bank as the customer: open the site, choose **Account**, and sign in with the Curity user that is mapped to Thandi. This is the person.
+- The staff console, in a third window of its own: open the site, choose **Staff**, and sign in with a Curity user listed in `STAFF_EMAILS`. If Curity is down, the emergency key still works: `/staff?key=…`, the `POPPY_STAFF_KEY` variable on the `nova-bank` Railway service.
 - The Inspector's settings for this demo, set once: `SIGNIN_SCOPES=accounts:read transactions:read payments:write`, `BROWSE_PATHS=/account /payments /payees /staff`, `STANDING_PERMISSION=1`, and two `OPERATIONS` presets (a small payment and a large one). The README lists them.
 
 **Before you start:** open `/staff` and make sure nobody is blocked. After the Inspector is redeployed, wait 30 seconds before the first run: the bank still holds its old keys for that long and answers `invalid_client`.
@@ -21,7 +21,7 @@ Say at the start: *"The Inspector is a personal agent that shows its working. Ev
 1. In the Inspector, click **Run journey**. No person is needed yet.
 2. Point at the steps as they pass: discover, read the excluded tasks, start a Session, list tools, call a public tool. *"Without signing in, an agent can already read our rates and find a branch. It cannot see anyone's money."*
 3. Click **Run with sign-in and operations**. The Inspector shows a link and a code.
-4. In the customer's window, open the link, check the code matches, read the scopes, and **Approve**.
+4. In the customer's window, open the link, check the code matches, read the scopes, and **Approve**. Only the signed-in customer can: the page needs their Curity sign-in.
 5. Back in the Inspector: **Sign a person in** passes. Open **Call a scoped tool**: it returns Thandi's balances.
 
 *Point to make:* the agent never saw a password. The customer approved exactly the scopes listed, in the bank's own page.

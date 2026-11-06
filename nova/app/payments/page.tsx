@@ -1,6 +1,6 @@
 import { accountsOf, TRANSACTIONS, zar } from "../../lib/bank";
-import { mayRead, viewer } from "../../lib/viewer";
-import { AgentBanner, NeedScope } from "../agent-banner";
+import { customerOf, mayRead, viewer } from "../../lib/viewer";
+import { AgentBanner, NeedScope, NoCustomer } from "../agent-banner";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Payments" };
@@ -9,13 +9,13 @@ export const metadata = { title: "Payments" };
 /** The customer's recent payments and transfers, including any their personal agent made. */
 export default async function Payments() {
 	const who = await viewer();
-	const customer = who.via === "nobody" ? undefined : who.customer;
+	const customer = customerOf(who);
 	if (!customer) {
 		return (
 			<main>
 				<header className="hero"><h1>Payments</h1></header>
 				<AgentBanner viewer={who} />
-				{who.via === "agent" ? <p className="card">This session has not signed in to Protea Bank. Ask the customer to approve a sign-in with the <code>transactions:read</code> scope.</p> : <p className="card"><a href="/login?return_to=/payments">Sign in</a> to see your payments.</p>}
+				{who.via === "visitor" ? <NoCustomer viewer={who} /> : who.via === "agent" ? <p className="card">This session has not signed in to Protea Bank. Ask the customer to approve a sign-in with the <code>transactions:read</code> scope.</p> : <p className="card"><a href="/login?return_to=/payments">Sign in</a> to see your payments.</p>}
 			</main>
 		);
 	}

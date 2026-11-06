@@ -20,3 +20,16 @@ export function NeedScope({ viewer, scope, what }: { viewer: Viewer; scope: stri
 		</p>
 	);
 }
+
+/** What a signed-in person with no customer record sees in place of accounts. */
+export function NoCustomer({ viewer }: { viewer: Viewer }) {
+	if (viewer.via !== "visitor") return null;
+	return (
+		<div className="card" data-no-customer>
+			<p>You are signed in as {viewer.label}, but there is no Protea Bank customer behind this login yet, so there are no accounts to show. Someone at the bank links a login to a customer by hand.</p>
+			<form action="/auth/logout" method="post">
+				<button type="submit" className="secondary">Sign out of Protea Bank</button>
+			</form>
+		</div>
+	);
+}

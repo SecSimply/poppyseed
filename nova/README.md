@@ -2,7 +2,7 @@
 
 A fictional South African bank, headquartered in Paarl, that shows what a personal agent can do with the Personal Agent Protocol. It is a Poppyseed site with a banking theme and a short list of services. Amounts are in South African rand (ZAR). Nothing here is real: no money, accounts or people. The directory and package keep the earlier name, `nova` and `nova-bank`, so the Railway services and their settings are unchanged.
 
-**Status:** phase 8 of 8, complete. The Inspector has steps for the excluded tasks, browsing, and a blocked run, and [DEMO.md](DEMO.md) is a script for showing all five capabilities. Rates, branches, accounts, balances, transactions, payments, a support chat, browsing, excluded tasks and blocking work, with Direct and Device Sign-In and separate scopes. The plan is in the project history; each phase adds one capability.
+**Status:** phase 8 of 8, complete, with sign-in through Curity. The Inspector has steps for the excluded tasks, browsing, and a blocked run, and [DEMO.md](DEMO.md) is a script for showing all five capabilities. Rates, branches, accounts, balances, transactions, payments, a support chat, browsing, excluded tasks and blocking work, with Direct and Device Sign-In and separate scopes. The plan is in the project history; each phase adds one capability.
 
 | Service | Shows | Phase |
 | --- | --- | --- |
@@ -21,6 +21,28 @@ A fictional South African bank, headquartered in Paarl, that shows what a person
 With `web: {}` an agent's browser can join its Session (`/poppy/browser-session`). `/account` and `/payments` then show what that Session may see, the same as its tools: balances need `accounts:read`, payments need `transactions:read`. A section it may not see names the missing scope. A banner says an agent is viewing, as whom and with which scopes. An agent's browser sees no connected-agents list and no sign-out, and while it carries a Session the site login in the same browser is ignored. `lib/viewer.ts` holds the rule.
 
 `scripts/browse-local.ts` drives this against a running local Protea with a real test agent and prints what each Session sees.
+
+## Signing in
+
+Customers and staff sign in with Curity (OpenID Connect, authorization code with PKCE, a confidential client). The flow is the `oidc-login` package, which the Inspector uses too. The server holds the tokens only for the moment it exchanges the code: what the browser keeps is a sealed session cookie (`__Host-pb_session` on https), with the person's id, email and name, and nothing it could use at Curity.
+
+- **Menu:** **Account** signs in a customer; **Staff** signs in staff, asking Curity for a fresh sign-in each time.
+- **Who a Curity user is:** `CUSTOMER_EMAILS` maps a login's email to a customer, as `thandi@…=cus_thandi pieter@…=cus_pieter`. A login not on the list signs in and sees **no accounts**, with a message saying so. Nothing is created for it.
+- **Email must be verified.** A login whose email Curity marks `email_verified: false` identifies nobody here: it maps to no customer and is never staff. Curity users are made by hand, so a login that carries no such claim is trusted. If Curity ever allows self-registration, make it send the claim.
+- **Staff:** `STAFF_EMAILS` lists the emails that may use the console, kept by hand. Empty, nobody signs in as staff. A customer's login never opens the console.
+- **The emergency key:** `POPPY_STAFF_KEY` still opens `/staff?key=…` when Curity is down or no one is listed yet. The console says when someone came in that way.
+- **What staff did** (took, replied, handed back, blocked, unblocked) is listed at the foot of the console, with who and how they got in. It is kept in memory.
+- **Consent pages:** Device and Direct Sign-In for agents now need a real sign-in, so only the signed-in customer can approve an agent.
+- **A deployed (https) site refuses to start** without `OIDC_ISSUER`, `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET`. A local http site without them keeps a demonstration login: pick one of the two customers, no password. It cannot run on https.
+
+**Curity client** (`protea-bank`: code flow, PKCE S256, secret, scopes `openid profile email`) needs these redirect URIs, exactly:
+
+- `https://nova-bank-production-bd33.up.railway.app/auth/callback`
+- `http://localhost:3000/auth/callback` (for `pnpm dev`)
+
+**Variables:** `OIDC_ISSUER` (`https://idp.fluffycloud.co.za/oauth/v2/oauth-anonymous`), `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `CUSTOMER_EMAILS`, `STAFF_EMAILS`, and the existing `POPPYSEED_BASE_URL`, `POPPYSEED_SECRET` and `POPPY_STAFF_KEY`. Keep the client secret out of the repository: `nova/proteabankoidc.md` is in `.gitignore` for this.
+
+`scripts/login-local.ts` proves all of it against a stand-in provider (the Inspector's `scripts/mock-oidc.ts`): a stranger, a customer, a login that is not a customer, a staff member, and an attacker who forges a cookie, replays a callback, signs someone out from another site, or tries an open redirect.
 
 ## What the bank will not do for an agent, and who it refuses
 
@@ -44,8 +66,8 @@ What the skips mean, in short: Mediated Sign-In is off on purpose; any agent may
 
 This is a demonstration, and some of it is deliberately not a real bank's:
 
-- **Sign-in is a choice, not a login.** `/login` lets anyone pick one of the two customers, and the cookie holds the customer's id. Anyone who can reach the site can approve a Device Sign-In as Thandi. A real bank puts its own authentication in `accounts.current` and `lib/customers.ts`; Poppyseed only asks who is signed in. The money is fictional and the data resets on restart.
-- **The staff key travels in the address and in each form.** `/staff?key=…` is checked in constant time, in the page and again in every action, but the key can end up in browser history. A real console would use a login and a cookie.
+- **The demonstration login exists only on a local http site.** Deployed (https), there is no way in but Curity, and a deployed site refuses to start without it. Any Curity user can sign in; what they see is decided by `CUSTOMER_EMAILS` and `STAFF_EMAILS`, which are edited by hand.
+- **The emergency staff key travels in the address and in each form.** `/staff?key=…` is checked in constant time, in the page and again in every action, but the key can end up in browser history. It exists for when Curity is down; staff use the Staff menu.
 - **The test hooks sign anyone in.** They exist only behind `POPPYSEED_TEST_HOOKS=1`. Never set it on a service with real customers.
 - **Everything the site writes is escaped** (React's defaults; nothing uses `dangerouslySetInnerHTML`). Reports from agents, payee names and client ids are shown as text.
 - **State is in memory**, one process: payments, payees, the blocklist and reports reset when the service restarts.

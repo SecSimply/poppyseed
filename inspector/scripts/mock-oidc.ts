@@ -15,7 +15,8 @@ const port = Number(process.env.PORT ?? 3500);
 const issuer = `http://localhost:${port}`;
 const clientId = process.env.CLIENT_ID ?? "inspector";
 const redirectUri = process.env.REDIRECT_URI ?? "http://localhost:3001/auth/callback";
-const user = { sub: "dev-user", email: "dev@example.com" };
+/** Who the next sign-in is. Change it with GET /_as?sub=…&email=…&name=… (local use only), to play different people. */
+const user: { sub: string; email: string; name?: string } = { sub: "dev-user", email: "dev@example.com" };
 const { publicKey, privateKey } = await generateKeyPair("RS256");
 const jwk = { ...(await exportJWK(publicKey)), kid: "mock", alg: "RS256", use: "sig" };
 const codes = new Map<string, { challenge: string; nonce: string }>();
@@ -24,6 +25,12 @@ createServer((request, response) => {
 	const url = new URL(request.url ?? "/", issuer);
 	const send = (status: number, body: unknown) => (response.writeHead(status, { "content-type": "application/json" }), response.end(JSON.stringify(body)));
 	if (url.pathname === "/.well-known/openid-configuration") return send(200, { issuer, authorization_endpoint: `${issuer}/authorize`, token_endpoint: `${issuer}/token`, jwks_uri: `${issuer}/jwks` });
+	if (url.pathname === "/_as") {
+		user.sub = url.searchParams.get("sub") ?? user.sub;
+		user.email = url.searchParams.get("email") ?? user.email;
+		user.name = url.searchParams.get("name") ?? undefined;
+		return send(200, user);
+	}
 	if (url.pathname === "/jwks") return send(200, { keys: [jwk] });
 	if (url.pathname === "/authorize") {
 		const q = url.searchParams;
@@ -43,7 +50,7 @@ createServer((request, response) => {
 			codes.delete(body.get("code") ?? ""); // one use
 			const pkce = grant && createHash("sha256").update(body.get("code_verifier") ?? "").digest("base64url") === grant.challenge;
 			if (!grant || !pkce || body.get("redirect_uri") !== redirectUri) return send(400, { error: "invalid_grant" });
-			const idToken = await new SignJWT({ nonce: grant.nonce, email: user.email }).setProtectedHeader({ alg: "RS256", kid: "mock" }).setIssuer(issuer).setAudience(clientId).setSubject(user.sub).setIssuedAt().setExpirationTime("5m").sign(privateKey);
+			const idToken = await new SignJWT({ nonce: grant.nonce, email: user.email, ...(user.name ? { name: user.name } : {}) }).setProtectedHeader({ alg: "RS256", kid: "mock" }).setIssuer(issuer).setAudience(clientId).setSubject(user.sub).setIssuedAt().setExpirationTime("5m").sign(privateKey);
 			send(200, { id_token: idToken, access_token: "unused", token_type: "Bearer" });
 		});
 		return;

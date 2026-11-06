@@ -1,8 +1,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { addPayee, payeesOf } from "../../lib/bank";
-import { mayRead, viewer } from "../../lib/viewer";
-import { AgentBanner, NeedScope } from "../agent-banner";
+import { customerOf, mayRead, viewer } from "../../lib/viewer";
+import { AgentBanner, NeedScope, NoCustomer } from "../agent-banner";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Payees" };
@@ -15,13 +15,13 @@ export const metadata = { title: "Payees" };
 export default async function Payees({ searchParams }: { searchParams: Promise<{ added?: string; error?: string }> }) {
 	const who = await viewer();
 	const { added, error } = await searchParams;
-	const customer = who.via === "nobody" ? undefined : who.customer;
+	const customer = customerOf(who);
 	if (!customer) {
 		return (
 			<main>
 				<header className="hero"><h1>Payees</h1></header>
 				<AgentBanner viewer={who} />
-				{who.via === "agent" ? <p className="card">This session has not signed in to Protea Bank.</p> : <p className="card"><a href="/login?return_to=/payees">Sign in</a> to manage your payees.</p>}
+				{who.via === "visitor" ? <NoCustomer viewer={who} /> : who.via === "agent" ? <p className="card">This session has not signed in to Protea Bank.</p> : <p className="card"><a href="/login?return_to=/payees">Sign in</a> to manage your payees.</p>}
 			</main>
 		);
 	}

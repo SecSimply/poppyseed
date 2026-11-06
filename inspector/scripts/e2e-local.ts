@@ -3,7 +3,7 @@
  * For local development only: it signs in as Protea Bank's demo customer (Thandi), so TARGET must be a local Protea Bank
  * and the inspector must be running with it.
  *
- *   INSPECTOR=http://localhost:3001 TARGET=http://localhost:3400 node --experimental-strip-types scripts/e2e-local.ts [approve|decline]
+ *   PERSON_COOKIE="$(node --experimental-strip-types --no-warnings ../nova/scripts/person.ts)" INSPECTOR=http://localhost:3001 TARGET=http://localhost:3400 node --experimental-strip-types scripts/e2e-local.ts [approve|decline]
  */
 import { Browser } from "poppyseed/agent";
 import type { ProtocolEvent } from "../shared/events.ts";
@@ -17,7 +17,12 @@ const started = await fetch(`${inspector}/api/runs`, { method: "POST", headers: 
 const { runId } = (await started.json()) as { runId: string };
 const stream = await fetch(`${inspector}/api/runs/${runId}/events`, { headers });
 
-const person = new Browser(globalThis.fetch.bind(globalThis), process.env.PERSON_COOKIE ?? "pb_session=cus_thandi");
+function requiredCookie(): string {
+	const cookie = process.env.PERSON_COOKIE;
+	if (!cookie) throw new Error("Set PERSON_COOKIE to a signed-in customer's cookie: node --experimental-strip-types --no-warnings ../nova/scripts/person.ts (from inspector/, with the same POPPYSEED_SECRET as the local Protea Bank)");
+	return cookie;
+}
+const person = new Browser(globalThis.fetch.bind(globalThis), requiredCookie());
 let failed = false;
 let buffer = "";
 for await (const chunk of stream.body!.pipeThrough(new TextDecoderStream())) {

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { siteCustomer } from "./customers.ts";
 import { GET, POST } from "../app/test-hooks/[hook]/route.ts";
 
 const ctx = (hook: string) => ({ params: Promise.resolve({ hook }) });
@@ -21,7 +22,8 @@ describe("the conformance hooks", () => {
 
 	it("sign in the two demo customers when on, and refuse a hook that is not listed", async () => {
 		process.env.POPPYSEED_TEST_HOOKS = "1";
-		expect(await (await post("siteSignIn")).json()).toEqual({ result: "pb_session=cus_thandi" });
+		const { result } = (await (await post("siteSignIn")).json()) as { result: string };
+		expect(siteCustomer(result)?.id).toBe("cus_thandi");
 		expect((await post("constructor")).status).toBe(404);
 		const listed = (await (await GET(new Request("https://bank.example/test-hooks/hooks"), ctx("hooks"))).json()) as { hooks: string[]; profile: { publicTool: { name: string } } };
 		expect(listed.hooks).toContain("staffJoin");

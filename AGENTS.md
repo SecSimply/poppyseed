@@ -29,6 +29,7 @@ Node 22, pnpm 10. `pnpm install` once, then:
   - `scripts/`: `spec.ts`, `mutants.ts` and `mutants.data.ts` (repo tooling, not published).
 - `fixtures/reference` is the reference company: every feature on, with test accounts and hooks. Its `test/conformance.test.ts` runs the suite in-process; the fixture app serves it over HTTP.
 - `fixtures/next-app` serves the reference company through `poppyseed/next`. `pnpm e2e` and the `verify` skill drive it over HTTP.
+- `packages/oidc` is `oidc-login`, a private package (not published): sign in with an OpenID Connect provider (Curity) by the authorization code flow with PKCE, shared by `nova` and `inspector`.
 - `nova` is Protea Bank, a fictional South African bank on `poppyseed/next` that shows sign-in, human approval, support chat, browsing and blocking. Its `scripts/check-local.ts` runs `poppyseed check` against a local build. It is a demonstration, not a test target.
 - `inspector` is the Poppy Inspector: a React and Node tool that runs a real `TestAgent` against one site and shows every request. It targets Protea Bank by default.
 

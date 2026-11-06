@@ -2,9 +2,10 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { poppyseed } from "../../poppyseed.config";
 import { accountsOf, balanceCents, zar } from "../../lib/bank";
-import { SITE_COOKIE, siteCustomer } from "../../lib/customers";
-import { mayRead, viewer } from "../../lib/viewer";
-import { AgentBanner, NeedScope } from "../agent-banner";
+import { siteCustomer } from "../../lib/customers";
+import { sessionFrom } from "../../lib/session";
+import { customerOf, mayRead, viewer } from "../../lib/viewer";
+import { AgentBanner, NeedScope, NoCustomer } from "../agent-banner";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Account" };
@@ -12,13 +13,13 @@ export const metadata = { title: "Account" };
 /** The customer's account settings: connected personal agents, what each can do, and a way to disconnect them. */
 export default async function Account() {
 	const who = await viewer();
-	const customer = who.via === "nobody" ? undefined : who.customer;
+	const customer = customerOf(who);
 	if (!customer) {
 		return (
 			<main>
 				<header className="hero"><h1>Account</h1></header>
 				<AgentBanner viewer={who} />
-				{who.via === "agent" ? <p className="card">This session has not signed in to Protea Bank. Ask the customer to approve a sign-in with the <code>accounts:read</code> scope.</p> : <p className="card"><a href="/login?return_to=/account">Sign in</a> to manage your account.</p>}
+				{who.via === "visitor" ? <NoCustomer viewer={who} /> : who.via === "agent" ? <p className="card">This session has not signed in to Protea Bank. Ask the customer to approve a sign-in with the <code>accounts:read</code> scope.</p> : <p className="card"><a href="/login?return_to=/account">Sign in</a> to manage your account.</p>}
 			</main>
 		);
 	}
@@ -28,11 +29,6 @@ export default async function Account() {
 		"use server";
 		const who = siteCustomer((await cookies()).toString());
 		if (who) await poppyseed.connections.disconnect(who.id, String(form.get("client_id")));
-		revalidatePath("/account");
-	}
-	async function signOut() {
-		"use server";
-		(await cookies()).delete(SITE_COOKIE);
 		revalidatePath("/account");
 	}
 	return (
@@ -88,7 +84,7 @@ export default async function Account() {
 					</div>
 				)}
 			</section>}
-			{who.via === "site" && <form action={signOut}>
+			{who.via === "site" && <form action="/auth/logout" method="post">
 				<button type="submit" className="secondary">Sign out of Protea Bank</button>
 			</form>}
 		</main>

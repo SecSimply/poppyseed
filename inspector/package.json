@@ -15,7 +15,8 @@
     "jose": "^6.0.0",
     "poppyseed": "workspace:*",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "oidc-login": "workspace:*"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.2",

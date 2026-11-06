@@ -1,11 +1,14 @@
 import { headers } from "next/headers";
 import type { SessionContext } from "poppyseed";
 import { poppyseed } from "../poppyseed.config";
-import { customerById, siteCustomer, type Customer } from "./customers";
+import { customerById, type Customer } from "./customers";
+import { sessionFrom } from "./session";
 
 /** What the person or agent looking at a page may see. Reading balances and reading transactions are separate scopes. */
 export type Viewer =
 	| { via: "nobody" }
+	/** Signed in to the site, but not as anyone with accounts: a Curity login that CUSTOMER_EMAILS does not map to a customer. */
+	| { via: "visitor"; label: string }
 	/** A customer signed in to the site in their own browser: they see everything of theirs. */
 	| { via: "site"; customer: Customer }
 	/** A personal agent's browser: it sees what its Session's scopes allow, the same as its tools, and nothing else. */
@@ -17,8 +20,10 @@ export type Viewer =
  */
 export function viewerOf(session: SessionContext | null, cookieHeader: string | null): Viewer {
 	if (session) return { via: "agent", clientId: session.clientId, customer: customerById(session.account?.id), scopes: session.account?.scopes ?? [] };
-	const customer = siteCustomer(cookieHeader);
-	return customer ? { via: "site", customer } : { via: "nobody" };
+	const site = sessionFrom(cookieHeader);
+	const customer = customerById(site?.customerId);
+	if (customer) return { via: "site", customer };
+	return site ? { via: "visitor", label: site.name ?? site.email ?? "this login" } : { via: "nobody" };
 }
 
 export async function viewer(): Promise<Viewer> {
@@ -30,3 +35,6 @@ export async function viewer(): Promise<Viewer> {
 export function mayRead(v: Viewer, scope: string): boolean {
 	return v.via === "site" || (v.via === "agent" && !!v.customer && v.scopes.includes(scope));
 }
+
+/** The customer whose pages these are, if any: the customer in their own browser, or the customer an agent's Session is signed in as. */
+export const customerOf = (v: Viewer) => (v.via === "site" || v.via === "agent" ? v.customer : undefined);

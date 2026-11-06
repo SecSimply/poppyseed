@@ -9,3 +9,6 @@ next-env.d.ts
 
 # Next.js 16 dev writes these for coding agents
 fixtures/next-app/AGENTS.md
+
+# Protea Bank OIDC config
+nova/proteabankoidc.md

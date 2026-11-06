@@ -1,6 +1,8 @@
 import type { Hooks, TargetProfile } from "poppyseed/agent";
 import { poppyseed } from "../poppyseed.config";
 import { performedTerms } from "./bank";
+import { customerById } from "./customers";
+import { SESSION_COOKIE, sealSession } from "./session";
 
 /**
  * What `poppyseed check` needs to prove the rules it cannot see from outside: which tools to call, and a few company
@@ -9,11 +11,17 @@ import { performedTerms } from "./bank";
  */
 const PEOPLE = { alice: "cus_thandi", bob: "cus_pieter" } as const;
 
+/** A Cookie header that signs a test person in to the site, as the sign-in at Curity would. */
+const cookieFor = (id: (typeof PEOPLE)[keyof typeof PEOPLE]): string => {
+	const customer = customerById(id)!;
+	return `${SESSION_COOKIE}=${sealSession({ sub: `test:${id}`, email: customer.email, name: customer.name, customerId: id, staff: false })}`;
+};
+
 const staff = { id: "aut_support", name: "Protea Bank support" };
 
 export const hooks = {
 	endSession: (sessionId) => poppyseed.endSession(sessionId),
-	siteSignIn: async (person) => `pb_session=${PEOPLE[person]}`,
+	siteSignIn: async (person) => cookieFor(PEOPLE[person]),
 	connections: (person) => poppyseed.connections.list(PEOPLE[person]),
 	disconnect: (person, clientId) => poppyseed.connections.disconnect(PEOPLE[person], clientId),
 	staffJoin: (id) => poppyseed.conversations.join(id),

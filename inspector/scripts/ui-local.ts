@@ -2,7 +2,7 @@
  * Drives the real inspector UI in headless Chrome against a local inspector and a local Protea Bank, playing the person
  * who approves the sign-in, and prints what the page shows. For development only: it signs in as Protea's demo customer.
  *
- *   INSPECTOR=http://localhost:3001 TARGET=http://localhost:3400 node --experimental-strip-types --no-warnings scripts/ui-local.ts <operation index> <approve|decline> [screenshot.png]
+ *   PERSON_COOKIE="$(node --experimental-strip-types --no-warnings ../nova/scripts/person.ts)" INSPECTOR=http://localhost:3001 TARGET=http://localhost:3400 node --experimental-strip-types --no-warnings scripts/ui-local.ts <operation index> <approve|decline> [screenshot.png]
  *
  * Needs Chrome (google-chrome) and the `ws` package from the workspace's dependencies.
  */
@@ -83,7 +83,7 @@ const waiting = await until("the sign-in panel", (t) => /Approve the sign-in/.te
 const code = /([A-Z]{4}-[A-Z]{4})/.exec(waiting)![1]!;
 const link = await evaluate(`document.querySelector('[role=alert] a')?.href`);
 console.log("sign-in panel shows code", code, "and link", link);
-const ada = new Browser(globalThis.fetch.bind(globalThis), "pb_session=cus_thandi");
+const ada = new Browser(globalThis.fetch.bind(globalThis), process.env.PERSON_COOKIE ?? (() => { throw new Error("Set PERSON_COOKIE: node --experimental-strip-types --no-warnings ../nova/scripts/person.ts"); })());
 const page2 = new URL(link ?? `${target}/oauth/device`);
 page2.search = "";
 await ada.decide(await ada.enterUserCode(page2.toString(), code), "approve");

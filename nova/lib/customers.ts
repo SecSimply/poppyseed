@@ -1,7 +1,9 @@
+import { sessionFrom } from "./session.ts";
+
 /**
- * Protea Bank's own customers and sign-in. A demonstration: two fictional customers and a cookie naming who is
- * signed in. A real bank uses its existing authentication here; Poppyseed only asks "who is signed in to this
- * browser?" and "where do they sign in?".
+ * Protea Bank's customers: two fictional people, with accounts. Who is signed in comes from the sealed session cookie
+ * (see session.ts), set after a sign-in at Curity, or by the demonstration login on a local http site. A curity user
+ * is one of these customers when CUSTOMER_EMAILS says so (see auth.ts).
  */
 export interface Customer {
 	id: string;
@@ -14,14 +16,11 @@ export const CUSTOMERS: Customer[] = [
 	{ id: "cus_pieter", name: "Pieter van Wyk", email: "pieter@proteabank.example" },
 ];
 
-export const SITE_COOKIE = "pb_session";
-
 export function customerById(id: string | undefined): Customer | undefined {
 	return CUSTOMERS.find((c) => c.id === id);
 }
 
-/** The customer signed in to the site in this request's browser, from the site's own cookie. */
+/** The customer signed in to the site in this request's browser, from the session cookie. */
 export function siteCustomer(cookieHeader: string | null): Customer | undefined {
-	const id = new RegExp(`(?:^|;\\s*)${SITE_COOKIE}=([\\w-]+)`).exec(cookieHeader ?? "")?.[1];
-	return customerById(id);
+	return customerById(sessionFrom(cookieHeader)?.customerId);
 }
