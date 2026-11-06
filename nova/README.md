@@ -35,12 +35,19 @@ Customers and staff sign in with Curity (OpenID Connect, authorization code with
 - **Consent pages:** Device and Direct Sign-In for agents now need a real sign-in, so only the signed-in customer can approve an agent.
 - **A deployed (https) site refuses to start** without `OIDC_ISSUER`, `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET`. A local http site without them keeps a demonstration login: pick one of the two customers, no password. It cannot run on https.
 
-**Curity client** (`protea-bank`: code flow, PKCE S256, secret, scopes `openid profile email`) needs these redirect URIs, exactly:
+**The Curity client** is `protea-bank`: code flow, PKCE S256, a secret, scopes `openid profile email`, with these redirect addresses registered (checked against Curity: both are accepted):
 
 - `https://nova-bank-production-bd33.up.railway.app/auth/callback`
-- `http://localhost:3000/auth/callback` (for `pnpm dev`)
+- `http://localhost:3000/auth/callback`, for `pnpm dev`
 
-**Variables:** `OIDC_ISSUER` (`https://idp.fluffycloud.co.za/oauth/v2/oauth-anonymous`), `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `CUSTOMER_EMAILS`, `STAFF_EMAILS`, and the existing `POPPYSEED_BASE_URL`, `POPPYSEED_SECRET` and `POPPY_STAFF_KEY`. Keep the client secret out of the repository: `nova/proteabankoidc.md` is in `.gitignore` for this.
+Its details live in one file, `nova/proteabankoidc.md`, which holds the secret and is git-ignored. Two scripts use it so the secret is never typed or printed:
+
+- `node --experimental-strip-types --no-warnings scripts/oidc-env.ts --local` writes `nova/.env.development.local`, so `pnpm dev` signs in with the real Curity on `localhost:3000`. Only `next dev` reads that file, so the local test scripts are not affected.
+- `node --experimental-strip-types --no-warnings scripts/oidc-env.ts --railway` sets `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` and `OIDC_REDIRECT_URI` on the `nova-bank` service without deploying. Run it again after the secret is rotated.
+
+`OIDC_REDIRECT_URI` is checked, not trusted: the site finishes sign-ins at `<its address>/auth/callback`, so a registered address that says anything else stops the site at start-up with a message that names both.
+
+**Other variables:** `CUSTOMER_EMAILS`, `STAFF_EMAILS`, and the existing `POPPYSEED_BASE_URL`, `POPPYSEED_SECRET` and `POPPY_STAFF_KEY`.
 
 `scripts/login-local.ts` proves all of it against a stand-in provider (the Inspector's `scripts/mock-oidc.ts`): a stranger, a customer, a login that is not a customer, a staff member, and an attacker who forges a cookie, replays a callback, signs someone out from another site, or tries an open redirect.
 

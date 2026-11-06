@@ -18,4 +18,11 @@ describe("sign-in configuration", () => {
 		expect(c.scopes).toBe("openid profile email");
 		expect(c.allowedSubs).toBeUndefined(); // any Curity user may sign in; lib/auth.ts decides what each may do
 	});
+
+	it("accepts the registered redirect address when it is this site's, and refuses one that could never work", () => {
+		expect(oidcFromEnv({ ...env, OIDC_REDIRECT_URI: "https://bank.example/auth/callback" }, "https://bank.example")!.redirectUri).toBe("https://bank.example/auth/callback");
+		for (const wrong of ["https://bank.railway.app/auth/callbank", "https://other.example/auth/callback", "https://bank.example/auth/callbank", "http://bank.example/auth/callback"]) {
+			expect(() => oidcFromEnv({ ...env, OIDC_REDIRECT_URI: wrong }, "https://bank.example"), wrong).toThrow(/OIDC_REDIRECT_URI/);
+		}
+	});
 });

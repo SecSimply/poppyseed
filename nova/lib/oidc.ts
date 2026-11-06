@@ -5,7 +5,7 @@ type Env = Record<string, string | undefined>;
 
 /**
  * Reads OIDC_* variables: OIDC_ISSUER, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET (the Curity client), and optionally
- * OIDC_SCOPES. Returns undefined when OIDC_ISSUER is not set; throws when it is set incompletely. Any account at the
+ * OIDC_SCOPES and OIDC_REDIRECT_URI (checked against this site's address, not used to build it). Returns undefined when OIDC_ISSUER is not set; throws when it is set incompletely. Any account at the
  * provider may sign in; what each may do is decided by `lib/auth.ts`.
  */
 export function oidcFromEnv(env: Env, publicUrl: string): OidcConfig | undefined {
@@ -15,12 +15,17 @@ export function oidcFromEnv(env: Env, publicUrl: string): OidcConfig | undefined
 	if (!url || (url.protocol !== "https:" && url.hostname !== "localhost")) throw new Error("OIDC_ISSUER must be an https:// URL");
 	if (!env.OIDC_CLIENT_ID) throw new Error("Set OIDC_CLIENT_ID (the client registered in Curity)");
 	if (!env.OIDC_CLIENT_SECRET) throw new Error("Set OIDC_CLIENT_SECRET: Protea Bank is a confidential client");
+	// Where Curity sends people back to. The route that finishes a sign-in is /auth/callback on this site, so a
+	// registered address that says anything else (another host, another path) could never work: refuse it at start-up.
+	const redirectUri = `${publicUrl}/auth/callback`;
+	const given = env.OIDC_REDIRECT_URI?.trim();
+	if (given && given !== redirectUri) throw new Error(`OIDC_REDIRECT_URI is ${given}, but this site finishes sign-ins at ${redirectUri}: register that address in Curity, or fix POPPYSEED_BASE_URL`);
 	return {
 		issuer,
 		clientId: env.OIDC_CLIENT_ID,
 		clientSecret: env.OIDC_CLIENT_SECRET,
 		scopes: env.OIDC_SCOPES?.trim() || "openid profile email",
-		redirectUri: `${publicUrl}/auth/callback`,
+		redirectUri,
 	};
 }
 
