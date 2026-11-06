@@ -120,16 +120,16 @@ footer { color: var(--muted); font-size: 0.92rem; border-top: 1px solid var(--li
 <header>
   <p class="eyebrow">Poppy Inspector</p>
   <h1>How the Inspector works</h1>
-  <p class="lede">The Inspector is a testing tool. It plays the part of an AI agent, introduces itself to a company's website, and shows every message that passes between them. This page follows one session, from signing in to the end of the standard test run.</p>
+  <p class="lede">The Inspector is a testing tool. It plays the part of an AI agent, introduces itself to a company's website, and shows every message that passes between them. This page follows one session against Protea Bank, a fictional bank in South Africa: from signing in, through the standard test run, to a full run in which a customer approves a payment.</p>
 </header>
 
 <section aria-labelledby="who">
   <div class="head"><h2 id="who">Who is involved</h2></div>
   <ul class="cast">
-    <li class="p"><strong>You</strong><span>Sign in, press Run journey and read the results.</span></li>
+    <li class="p"><strong>You</strong><span>Sign in, press Run, approve what the agent asks of you and read the results. In the full run you are also the bank's customer.</span></li>
     <li class="i"><strong>The Inspector</strong><span>Our tool. It runs a real AI agent and records each exchange.</span></li>
     <li class="d"><strong>Identity provider</strong><span>Curity. It checks who you are, so the Inspector never handles your password.</span></li>
-    <li class="c"><strong>Company site</strong><span>The website under test, a demo travel company. It decides whether to trust the agent.</span></li>
+    <li class="c"><strong>Company site</strong><span>The website under test: Protea Bank, a fictional bank headquartered in Paarl. It decides whether to trust the agent, and what the agent may do.</span></li>
   </ul>
   <div class="ideas">
     <div><h3>Passwords stay put</h3><p>Your password goes only to the identity provider. The Inspector receives a signed statement that you have signed in.</p></div>
@@ -179,57 +179,177 @@ footer { color: var(--muted); font-size: 0.92rem; border-top: 1px solid var(--li
 <section aria-labelledby="part2">
   <div class="head">
     <p class="eyebrow">Part 2</p>
-    <h2 id="part2">The test run</h2>
-    <p>Run journey performs four steps against the company site. Each step builds on the one before. If a step fails, the run stops and shows the company's own error.</p>
+    <h2 id="part2">The standard run</h2>
+    <p>Run journey performs seven steps against the bank. It needs no person. Each step builds on the one before. If a step fails, the run stops and shows the bank's own error.</p>
   </div>
   <figure>
-    <svg viewBox="0 0 960 658" role="img" aria-label="Sequence of the test run: the Inspector discovers the company, starts a session, lists the tools, calls a public tool and shows every exchange to the person."><defs><marker id="h-person-personinspectorcompany" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9 z" class="h-person"/></marker><marker id="h-inspector-personinspectorcompany" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9 z" class="h-inspector"/></marker><marker id="h-company-personinspectorcompany" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9 z" class="h-company"/></marker></defs><line class="life" x1="160" y1="64" x2="160" y2="650"/><rect class="lane-box pp-person" x="64" y="8" width="192" height="54" rx="9"/><text class="lane-name h-person" x="160" y="31">You</text><text class="lane-sub" x="160" y="50">the person</text><line class="life" x1="480" y1="64" x2="480" y2="650"/><rect class="lane-box pp-inspector" x="384" y="8" width="192" height="54" rx="9"/><text class="lane-name h-inspector" x="480" y="31">The Inspector</text><text class="lane-sub" x="480" y="50">our testing tool</text><line class="life" x1="800" y1="64" x2="800" y2="650"/><rect class="lane-box pp-company" x="704" y="8" width="192" height="54" rx="9"/><text class="lane-name h-company" x="800" y="31">Company site</text><text class="lane-sub" x="800" y="50">the site under test</text><line class="msg-line pp-person" x1="165" y1="96" x2="475" y2="96" marker-end="url(#h-person-personinspectorcompany)"/><text class="msg-label" x="320" y="87">Press Run journey</text><line class="msg-line pp-inspector" x1="485" y1="144" x2="795" y2="144" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="135">Ask for the business card</text><circle class="badge" cx="30" cy="144" r="13"/><text class="badge-text" x="30" y="144.5">1</text><line class="msg-line pp-company back" x1="795" y1="192" x2="485" y2="192" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="183">Who they are, what they offer</text><line class="msg-line pp-inspector" x1="485" y1="240" x2="795" y2="240" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="231">Prove who we are: signed statements</text><circle class="badge" cx="30" cy="240" r="13"/><text class="badge-text" x="30" y="240.5">2</text><line class="msg-line pp-company" x1="795" y1="288" x2="485" y2="288" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="279">Checks our public ID card and keys</text><line class="msg-line pp-inspector back" x1="485" y1="336" x2="795" y2="336" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="327">Our ID card and public keys</text><line class="msg-line pp-company back" x1="795" y1="384" x2="485" y2="384" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="375">Session token, locked to our key</text><line class="msg-line pp-inspector" x1="485" y1="432" x2="795" y2="432" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="423">List the tools (second token)</text><circle class="badge" cx="30" cy="432" r="13"/><text class="badge-text" x="30" y="432.5">3</text><line class="msg-line pp-company back" x1="795" y1="480" x2="485" y2="480" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="471">The tools on offer</text><line class="msg-line pp-inspector" x1="485" y1="528" x2="795" y2="528" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="519">Call the flight search</text><circle class="badge" cx="30" cy="528" r="13"/><text class="badge-text" x="30" y="528.5">4</text><line class="msg-line pp-company back" x1="795" y1="576" x2="485" y2="576" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="567">Flight offers</text><line class="msg-line pp-inspector back" x1="475" y1="624" x2="165" y2="624" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="320" y="615">Every exchange on screen, secrets masked</text></svg>
+    <svg viewBox="0 0 960 850" role="img" aria-label="Sequence of the standard run: the Inspector discovers the bank, reads what it will not do, starts a session, lists the tools, calls a public tool, asks the assistant a question and asks for a task the bank does not offer, and shows every exchange to the person."><defs><marker id="h-person-personinspectorcompany" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9 z" class="h-person"/></marker><marker id="h-inspector-personinspectorcompany" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9 z" class="h-inspector"/></marker><marker id="h-company-personinspectorcompany" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9 z" class="h-company"/></marker></defs><line class="life" x1="160" y1="64" x2="160" y2="842"/><rect class="lane-box pp-person" x="64" y="8" width="192" height="54" rx="9"/><text class="lane-name h-person" x="160" y="31">You</text><text class="lane-sub" x="160" y="50">the person</text><line class="life" x1="480" y1="64" x2="480" y2="842"/><rect class="lane-box pp-inspector" x="384" y="8" width="192" height="54" rx="9"/><text class="lane-name h-inspector" x="480" y="31">The Inspector</text><text class="lane-sub" x="480" y="50">our testing tool</text><line class="life" x1="800" y1="64" x2="800" y2="842"/><rect class="lane-box pp-company" x="704" y="8" width="192" height="54" rx="9"/><text class="lane-name h-company" x="800" y="31">Company site</text><text class="lane-sub" x="800" y="50">the site under test</text><line class="msg-line pp-person" x1="165" y1="96" x2="475" y2="96" marker-end="url(#h-person-personinspectorcompany)"/><text class="msg-label" x="320" y="87">Press Run journey</text><line class="msg-line pp-inspector" x1="485" y1="144" x2="795" y2="144" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="135">Ask for the business card</text><circle class="badge" cx="30" cy="144" r="13"/><text class="badge-text" x="30" y="144.5">1</text><line class="msg-line pp-company back" x1="795" y1="192" x2="485" y2="192" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="183">Who they are, what they offer</text><line class="msg-line pp-inspector" x1="485" y1="240" x2="795" y2="240" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="231">Ask what the bank will not do</text><circle class="badge" cx="30" cy="240" r="13"/><text class="badge-text" x="30" y="240.5">2</text><line class="msg-line pp-company back" x1="795" y1="288" x2="485" y2="288" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="279">The list, with where to do each instead</text><line class="msg-line pp-inspector" x1="485" y1="336" x2="795" y2="336" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="327">Prove who we are: signed statements</text><circle class="badge" cx="30" cy="336" r="13"/><text class="badge-text" x="30" y="336.5">3</text><line class="msg-line pp-company back" x1="795" y1="384" x2="485" y2="384" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="375">Session token, locked to our key</text><line class="msg-line pp-inspector" x1="485" y1="432" x2="795" y2="432" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="423">List the tools (second token)</text><circle class="badge" cx="30" cy="432" r="13"/><text class="badge-text" x="30" y="432.5">4</text><line class="msg-line pp-company back" x1="795" y1="480" x2="485" y2="480" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="471">The tools on offer</text><line class="msg-line pp-inspector" x1="485" y1="528" x2="795" y2="528" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="519">Ask for the savings rates</text><circle class="badge" cx="30" cy="528" r="13"/><text class="badge-text" x="30" y="528.5">5</text><line class="msg-line pp-company back" x1="795" y1="576" x2="485" y2="576" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="567">The rates, in rand</text><line class="msg-line pp-inspector" x1="485" y1="624" x2="795" y2="624" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="615">Ask the assistant a question</text><circle class="badge" cx="30" cy="624" r="13"/><text class="badge-text" x="30" y="624.5">6</text><line class="msg-line pp-company back" x1="795" y1="672" x2="485" y2="672" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="663">An answer from the assistant</text><line class="msg-line pp-inspector" x1="485" y1="720" x2="795" y2="720" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="711">Ask for a task on the list</text><circle class="badge" cx="30" cy="720" r="13"/><text class="badge-text" x="30" y="720.5">7</text><line class="msg-line pp-company back" x1="795" y1="768" x2="485" y2="768" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="759">Declines, and says where to do it</text><line class="msg-line pp-inspector back" x1="475" y1="816" x2="165" y2="816" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="320" y="807">Every exchange on screen, secrets masked</text></svg>
     <div class="legend"><span>A message</span><span class="dash">A reply</span></div>
   </figure>
   <ol class="steps two">
     <li class="step">
-      <header><span class="mark">1</span><h3>Discover the company</h3></header>
+      <header><span class="mark">1</span><h3>Discover the bank</h3></header>
       <dl>
-        <div><dt>What is sent</dt><dd>A plain request to a public address on the company's site, <code>/.well-known/poppy.json</code>.</dd></div>
-        <div><dt>What comes back</dt><dd>The company's business card: its name, which version of the protocol it speaks, which interfaces it offers and which permissions exist.</dd></div>
+        <div><dt>What is sent</dt><dd>A plain request to a public address on the bank's site, <code>/.well-known/poppy.json</code>.</dd></div>
+        <div><dt>What comes back</dt><dd>The bank's business card: its name, which version of the protocol it speaks, which interfaces it offers and which permissions exist.</dd></div>
         <div><dt>Why it is safe</dt><dd>It is public information. No credentials are involved.</dd></div>
       </dl>
     </li>
     <li class="step">
-      <header><span class="mark">2</span><h3>Start a session</h3></header>
+      <header><span class="mark">2</span><h3>Read what the bank will not do</h3></header>
       <dl>
-        <div><dt>What is sent</dt><dd>Two signed statements, one saying which agent this is and one giving the agent's identity with this company. A single-use stamp ties the request to a fresh key made for this session.</dd></div>
-        <div><dt>What comes back</dt><dd>A session token that lasts an hour and is locked to that key. The company first looks up the Inspector's public ID card and keys, which the Inspector publishes at its own address, to check the signatures.</dd></div>
+        <div><dt>What is sent</dt><dd>A plain request for the bank's published list of tasks it does not offer to agents, such as adding a payee or closing an account.</dd></div>
+        <div><dt>What comes back</dt><dd>The list, each task with where to do it instead, such as at a branch or in the customer's own browser.</dd></div>
+        <div><dt>Why it is safe</dt><dd>An agent should know the limits before it starts. The list is the same for everyone and needs no sign-in.</dd></div>
+      </dl>
+    </li>
+    <li class="step">
+      <header><span class="mark">3</span><h3>Start a session</h3></header>
+      <dl>
+        <div><dt>What is sent</dt><dd>Two signed statements, one saying which agent this is and one giving the agent's identity with this bank. A single-use stamp ties the request to a fresh key made for this session.</dd></div>
+        <div><dt>What comes back</dt><dd>A session token that lasts an hour and is locked to that key. The bank first looks up the Inspector's public ID card and keys, which the Inspector publishes at its own address, to check the signatures.</dd></div>
         <div><dt>Why it is safe</dt><dd>Each stamp can be used once, for one request. Without the key, a stolen token does nothing.</dd></div>
       </dl>
     </li>
     <li class="step">
-      <header><span class="mark">3</span><h3>List the tools</h3></header>
+      <header><span class="mark">4</span><h3>List the tools</h3></header>
       <dl>
-        <div><dt>What is sent</dt><dd>A request to the company's tool service, using a second token that works only for that service.</dd></div>
-        <div><dt>What comes back</dt><dd>The tools an agent may use there, each with a short description, such as searching for flights. The tool service follows MCP, the common standard for this.</dd></div>
+        <div><dt>What is sent</dt><dd>A request to the bank's tool service, using a second token that works only for that service.</dd></div>
+        <div><dt>What comes back</dt><dd>The tools an agent may use: rates, branches, accounts, transactions, payees and payments, each with a short description and the permission it needs. The tool service follows MCP, the common standard for this.</dd></div>
         <div><dt>Why it is safe</dt><dd>A token for the tool service is refused everywhere else.</dd></div>
       </dl>
     </li>
     <li class="step">
-      <header><span class="mark">4</span><h3>Use a public tool</h3></header>
+      <header><span class="mark">5</span><h3>Use a public tool</h3></header>
       <dl>
-        <div><dt>What is sent</dt><dd>A flight search. Like every request, it carries its own fresh stamp.</dd></div>
-        <div><dt>What comes back</dt><dd>A list of flight offers.</dd></div>
+        <div><dt>What is sent</dt><dd>A request for the bank's savings rates. Like every request, it carries its own fresh stamp.</dd></div>
+        <div><dt>What comes back</dt><dd>The published rates, in rand.</dd></div>
         <div><dt>Why it is safe</dt><dd>Anyone may use this tool. It touches no personal data and needs no sign-in.</dd></div>
+      </dl>
+    </li>
+    <li class="step">
+      <header><span class="mark">6</span><h3>Ask the bank's assistant</h3></header>
+      <dl>
+        <div><dt>What is sent</dt><dd>A question in the bank's support chat: what are your savings rates?</dd></div>
+        <div><dt>What comes back</dt><dd>An answer from the bank's assistant, which looked the rates up with the same public tool.</dd></div>
+        <div><dt>Why it is safe</dt><dd>A chat without a sign-in sees nothing personal. Asked for balances, the assistant asks for the permission and shows no numbers.</dd></div>
+      </dl>
+    </li>
+    <li class="step">
+      <header><span class="mark">7</span><h3>Ask for something it will not do</h3></header>
+      <dl>
+        <div><dt>What is sent</dt><dd>The first task from the bank's list, asked in plain words: add a new payee.</dd></div>
+        <div><dt>What comes back</dt><dd>The assistant declines, says where the customer can do it, and offers to pass them to a person.</dd></div>
+        <div><dt>Why it is safe</dt><dd>The bank keeps its promise on every interface, not only on paper.</dd></div>
       </dl>
     </li>
   </ol>
   <div class="screen">
     <h3>What you see on screen</h3>
-    <p>Each step shows a tick or a cross. Open a step to read every request and response behind it. When the company refuses something, the likely causes are listed next to it. Each signed token is opened up, with its contents checked against the rules the company applies. The signature itself is never shown.</p>
+    <p>Each step shows a tick or a cross. Open a step to read every request and response behind it. When the bank refuses something, the likely causes are listed next to it. Each signed token is opened up, with its contents checked against the rules the bank applies. The signature itself is never shown.</p>
   </div>
+</section>
+
+<section aria-labelledby="part3">
+  <div class="head">
+    <p class="eyebrow">Part 3</p>
+    <h2 id="part3">The signed-in run</h2>
+    <p>Run with sign-in and operations adds the steps that need a person. This time you are the bank's customer. You approve a sign-in on the bank's own page, and the agent then reads your account, browses the site, chats, and proposes a payment. Nothing moves until it is confirmed, and the run ends by signing out.</p>
+  </div>
+  <figure>
+    <svg viewBox="0 0 960 994" role="img" aria-label="Sequence of the signed-in run: the Inspector asks to sign a customer in, the customer approves on the bank's page, the agent reads the account, browses the site, chats, proposes a payment, the customer decides, and the agent signs out."><defs><marker id="h-person-personinspectorcompany" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9 z" class="h-person"/></marker><marker id="h-inspector-personinspectorcompany" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9 z" class="h-inspector"/></marker><marker id="h-company-personinspectorcompany" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9 z" class="h-company"/></marker></defs><line class="life" x1="160" y1="64" x2="160" y2="986"/><rect class="lane-box pp-person" x="64" y="8" width="192" height="54" rx="9"/><text class="lane-name h-person" x="160" y="31">You</text><text class="lane-sub" x="160" y="50">the person</text><line class="life" x1="480" y1="64" x2="480" y2="986"/><rect class="lane-box pp-inspector" x="384" y="8" width="192" height="54" rx="9"/><text class="lane-name h-inspector" x="480" y="31">The Inspector</text><text class="lane-sub" x="480" y="50">our testing tool</text><line class="life" x1="800" y1="64" x2="800" y2="986"/><rect class="lane-box pp-company" x="704" y="8" width="192" height="54" rx="9"/><text class="lane-name h-company" x="800" y="31">Company site</text><text class="lane-sub" x="800" y="50">the site under test</text><line class="msg-line pp-person" x1="165" y1="96" x2="475" y2="96" marker-end="url(#h-person-personinspectorcompany)"/><text class="msg-label" x="320" y="87">Press Run with sign-in</text><line class="msg-line pp-inspector" x1="485" y1="144" x2="795" y2="144" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="135">Ask to sign a customer in</text><circle class="badge" cx="30" cy="144" r="13"/><text class="badge-text" x="30" y="144.5">A</text><line class="msg-line pp-company back" x1="795" y1="192" x2="485" y2="192" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="183">A short code and a link</text><line class="msg-line pp-inspector back" x1="475" y1="240" x2="165" y2="240" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="320" y="231">Show you the link and the code</text><line class="msg-line pp-person" x1="165" y1="288" x2="795" y2="288" marker-end="url(#h-person-personinspectorcompany)"/><text class="msg-label" x="480" y="279">You open the link, check the code, approve</text><line class="msg-line pp-company back" x1="795" y1="336" x2="485" y2="336" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="327">Signed in, with only what you approved</text><line class="msg-line pp-inspector" x1="485" y1="384" x2="795" y2="384" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="375">Read the accounts</text><circle class="badge" cx="30" cy="384" r="13"/><text class="badge-text" x="30" y="384.5">B</text><line class="msg-line pp-company back" x1="795" y1="432" x2="485" y2="432" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="423">Balances</text><line class="msg-line pp-inspector" x1="485" y1="480" x2="795" y2="480" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="471">Join the site in a browser, view pages</text><circle class="badge" cx="30" cy="480" r="13"/><text class="badge-text" x="30" y="480.5">C</text><line class="msg-line pp-company back" x1="795" y1="528" x2="485" y2="528" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="519">Pages show what the permissions allow</text><line class="msg-line pp-inspector" x1="485" y1="576" x2="795" y2="576" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="567">Ask about the account, ask for a person</text><circle class="badge" cx="30" cy="576" r="13"/><text class="badge-text" x="30" y="576.5">D</text><line class="msg-line pp-company back" x1="795" y1="624" x2="485" y2="624" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="615">An answer, and a chat queued for staff</text><line class="msg-line pp-inspector" x1="485" y1="672" x2="795" y2="672" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="663">Propose a payment</text><circle class="badge" cx="30" cy="672" r="13"/><text class="badge-text" x="30" y="672.5">E</text><line class="msg-line pp-company back" x1="795" y1="720" x2="485" y2="720" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="711">A proposal: nothing has moved</text><line class="msg-line pp-inspector back" x1="475" y1="768" x2="165" y2="768" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="320" y="759">Large payment: asks you to decide</text><circle class="badge" cx="30" cy="768" r="13"/><text class="badge-text" x="30" y="768.5">F</text><line class="msg-line pp-person" x1="165" y1="816" x2="475" y2="816" marker-end="url(#h-person-personinspectorcompany)"/><text class="msg-label" x="320" y="807">Approve or decline</text><line class="msg-line pp-inspector" x1="485" y1="864" x2="795" y2="864" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="855">Confirm as you, or cancel</text><line class="msg-line pp-company back" x1="795" y1="912" x2="485" y2="912" marker-end="url(#h-company-personinspectorcompany)"/><text class="msg-label" x="640" y="903">Paid, with a reference</text><line class="msg-line pp-inspector" x1="485" y1="960" x2="795" y2="960" marker-end="url(#h-inspector-personinspectorcompany)"/><text class="msg-label" x="640" y="951">Sign out: revoke the credential</text><circle class="badge" cx="30" cy="960" r="13"/><text class="badge-text" x="30" y="960.5">G</text></svg>
+    <div class="legend"><span>A message</span><span class="dash">A reply</span></div>
+  </figure>
+  <ol class="steps two">
+    <li class="step">
+      <header><span class="mark">A</span><h3>Sign a customer in</h3></header>
+      <dl>
+        <div><dt>What is sent</dt><dd>A request to sign a customer in, listing the permissions wanted: see accounts, see transactions, make payments.</dd></div>
+        <div><dt>What comes back</dt><dd>A short code and a link. You open the link on the bank's own page, check that its code matches the one on the Inspector's screen, read the permissions and approve.</dd></div>
+        <div><dt>Why it is safe</dt><dd>The agent never sees your password and gets only the permissions you approved.</dd></div>
+      </dl>
+    </li>
+    <li class="step">
+      <header><span class="mark">B</span><h3>Read the account</h3></header>
+      <dl>
+        <div><dt>What is sent</dt><dd>A request for your accounts, using the signed-in session.</dd></div>
+        <div><dt>What comes back</dt><dd>Your balances, showing only the last four digits of each account number.</dd></div>
+        <div><dt>Why it is safe</dt><dd>It needs the see-accounts permission. A session without it is refused, and the refusal names the permission.</dd></div>
+      </dl>
+    </li>
+    <li class="step">
+      <header><span class="mark">C</span><h3>Browse the site</h3></header>
+      <dl>
+        <div><dt>What is sent</dt><dd>The agent's browser proves it holds the session, then loads the account, payments, payees and staff pages.</dd></div>
+        <div><dt>What comes back</dt><dd>Your pages, showing only what the session's permissions allow. The staff page does not exist for an agent.</dd></div>
+        <div><dt>Why it is safe</dt><dd>The website follows the same rules as the tools, so it is not a back door.</dd></div>
+      </dl>
+    </li>
+    <li class="step">
+      <header><span class="mark">D</span><h3>Ask the assistant, then ask for a person</h3></header>
+      <dl>
+        <div><dt>What is sent</dt><dd>A question about your account, then a request to speak to a person.</dd></div>
+        <div><dt>What comes back</dt><dd>The assistant answers from your account. The request puts the chat in the bank's staff queue, where a member of staff can take it over and reply.</dd></div>
+        <div><dt>Why it is safe</dt><dd>The assistant reads and explains. It never moves money in a chat.</dd></div>
+      </dl>
+    </li>
+    <li class="step">
+      <header><span class="mark">E</span><h3>Propose a payment</h3></header>
+      <dl>
+        <div><dt>What is sent</dt><dd>A request to pay one of your saved payees, for example R1 735,00 to an electricity supplier.</dd></div>
+        <div><dt>What comes back</dt><dd>A proposal, not a payment: the bank says what it would do and waits.</dd></div>
+        <div><dt>Why it is safe</dt><dd>Nothing moves until the proposal is confirmed.</dd></div>
+      </dl>
+    </li>
+    <li class="step">
+      <header><span class="mark">F</span><h3>The person decides</h3></header>
+      <dl>
+        <div><dt>A small payment</dt><dd>Within the standing permission you gave your agent, so it is confirmed without asking, and the Inspector says so.</dd></div>
+        <div><dt>A large payment</dt><dd>Over R5 000 the bank requires your own approval. The Inspector shows Approve and Decline. The agent confirms as you, and only after you click.</dd></div>
+        <div><dt>Why it is safe</dt><dd>The bank, not the agent, draws the line, and refuses an agent that claims a permission it was not given. An unanswered request declines after ten minutes.</dd></div>
+      </dl>
+    </li>
+    <li class="step">
+      <header><span class="mark">G</span><h3>Sign out</h3></header>
+      <dl>
+        <div><dt>What is sent</dt><dd>A request to cancel the credential the agent was given.</dd></div>
+        <div><dt>What comes back</dt><dd>Confirmation that it is revoked.</dd></div>
+        <div><dt>Why it is safe</dt><dd>It happens whether or not the run finished, so no standing credential is left at the bank.</dd></div>
+      </dl>
+    </li>
+  </ol>
+</section>
+
+<section aria-labelledby="part4">
+  <div class="head">
+    <p class="eyebrow">Part 4</p>
+    <h2 id="part4">When the bank says no</h2>
+    <p>A bank decides what an agent may do, and who it will deal with. The Inspector shows both.</p>
+  </div>
+  <ol class="steps two">
+    <li class="step">
+      <header><span class="mark">1</span><h3>Tasks the bank will not do for an agent</h3></header>
+      <dl>
+        <div><dt>What is sent</dt><dd>Nothing is sent. The bank publishes the list (step 2 of the standard run): add a payee, close an account, send an international payment.</dd></div>
+        <div><dt>What you see</dt><dd>There is no tool for any of them. The assistant declines and says where to do it. On the website, the customer's own browser can add a payee, and an agent's browser is given no form.</dd></div>
+        <div><dt>Why it matters</dt><dd>A refusal that holds on every interface is one a customer can rely on.</dd></div>
+      </dl>
+    </li>
+    <li class="step">
+      <header><span class="mark">2</span><h3>An agent the bank refuses</h3></header>
+      <dl>
+        <div><dt>How it is set</dt><dd>Staff can block an agent by its address from the bank's support console.</dd></div>
+        <div><dt>What you see</dt><dd>The next run fails at the session step with <code>client is blocked</code>. The Inspector explains that this is the bank's decision, not a fault in the agent's keys.</dd></div>
+        <div><dt>Why it matters</dt><dd>A bank can refuse a particular agent, and an agent can tell that apart from a bug. A session already in hand runs until its token expires, an hour by default.</dd></div>
+      </dl>
+    </li>
+  </ol>
 </section>
 
 <section aria-labelledby="more">
   <div class="head">
-    <h2 id="more">Beyond the standard run</h2>
-    <p>A longer run adds the steps that need a person. You approve a sign-in on the company's own page. The agent then calls a tool that needs that sign-in and proposes a booking. Nothing is confirmed until you decide, and the run ends by signing out. The Inspector can also send deliberately broken requests to confirm that the company refuses them.</p>
+    <h2 id="more">Beyond the runs</h2>
+    <p>The Inspector can also send deliberately broken requests to confirm that a company refuses them: a forged signature, a stale stamp, a token for the wrong service. It reports whether the company said no, and how.</p>
   </div>
 </section>
 
@@ -243,11 +363,15 @@ footer { color: var(--muted); font-size: 0.92rem; border-top: 1px solid var(--li
     <div><dt>Session</dt><dd>The period during which the company recognises the agent, tied to one key.</dd></div>
     <div><dt>PKCE</dt><dd>A sign-in safeguard. It proves the program finishing a sign-in is the one that started it.</dd></div>
     <div><dt>Approved list</dt><dd>The people allowed to use the Inspector, checked after the identity provider has confirmed who they are.</dd></div>
+    <div><dt>Permission</dt><dd>What a customer lets an agent do, such as see accounts or make payments. The bank checks it on every request.</dd></div>
+    <div><dt>Standing permission</dt><dd>Approval a customer gives in advance for small actions. Large ones still need the customer each time.</dd></div>
+    <div><dt>Excluded task</dt><dd>Something a company chooses not to offer agents, published with where to do it instead.</dd></div>
+    <div><dt>Blocked agent</dt><dd>An agent the company refuses by its address, whatever its keys.</dd></div>
     <div><dt>MCP</dt><dd>A common standard for an agent to list and use the tools a service offers.</dd></div>
   </dl>
 </section>
 
-<footer>The identity provider and company site named here are the ones in the current test setup. The diagrams show the standard run, as built.</footer>
+<footer>The identity provider and bank named here are the ones in the current test setup. Protea Bank is fictional: no real money, accounts or people. The diagrams show the runs as built.</footer>
 
 </main>
 </body>
