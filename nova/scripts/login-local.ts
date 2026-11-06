@@ -116,6 +116,13 @@ r = await visit(visitor, "/login");
 expect(r.trail.every((u) => !u.startsWith(mock)) && r.text.includes("no Protea Bank customer"), "going to sign in again does not loop back to Curity");
 expect((await visit(visitor, "/payments")).text.includes("no Protea Bank customer"), "/payments shows the same");
 
+r = await visit(visitor, "/payments");
+expect(/href="\/auth\/login\?as=customer&amp;fresh=1/.test(await (await visitor.request(`${target}/payments`)).text()), "the page offers a sign-in that asks Curity to check afresh");
+const freshStart = await visitor.request(`${target}/auth/login?as=customer&fresh=1&return_to=/account`);
+expect(new URL(freshStart.headers.get("location") ?? "", target).searchParams.get("prompt") === "login", "which sends prompt=login, as the staff sign-in does");
+const plainStart = await new Browser(fetcher).request(`${target}/auth/login?as=customer&return_to=/account`);
+expect(!new URL(plainStart.headers.get("location") ?? "", target).searchParams.has("prompt"), "an ordinary customer sign-in does not");
+
 console.log("\nstaff, Sam, signs in with Curity");
 await as("curity-3", "sam@bank.example", "Sam Dlamini");
 const sam = new Browser(fetcher);
