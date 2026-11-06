@@ -23,15 +23,15 @@ export const parseEmails = (text: string | undefined): Set<string> => new Set((t
  * customer's login never opens the support console.
  */
 export function sessionFor(user: OidcUser, env: Env = process.env): Session {
-	// An email the provider says is not verified could be anyone's: it identifies nobody here. (A provider that sends no claim is trusted, as its users are made by hand.)
-	const email = user.emailVerified === false ? undefined : user.email?.toLowerCase();
-	const mapped = email ? parseCustomerEmails(env.CUSTOMER_EMAILS).get(email) : undefined;
+	// TEMPORARY: customers are matched on email even when the provider says it is unverified (Curity's email_verified is not yet being set). Staff still needs a verified email.
+	const anyEmail = user.email?.toLowerCase();
+	const email = user.emailVerified === false ? undefined : anyEmail;
+	const mapped = anyEmail ? parseCustomerEmails(env.CUSTOMER_EMAILS).get(anyEmail) : undefined;
 	return {
 		sub: user.sub,
 		...(user.email ? { email: user.email } : {}),
 		...(user.name ? { name: user.name } : {}),
 		...(customerById(mapped) ? { customerId: mapped } : {}),
-		...(user.emailVerified === false ? { emailUnverified: true as const } : {}),
 		staff: email !== undefined && parseEmails(env.STAFF_EMAILS).has(email),
 	};
 }

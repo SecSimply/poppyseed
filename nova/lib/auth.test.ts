@@ -29,8 +29,8 @@ describe("who a Curity user is", () => {
 		expect(sessionFor({ sub: "s5", email: "sam@bank.example" }, {}).staff).toBe(false);
 	});
 
-	it("does not take an email the provider says is unverified for a customer or for staff", () => {
-		expect(sessionFor({ sub: "x", email: "thandi@example.com", emailVerified: false }, env)).toEqual({ sub: "x", email: "thandi@example.com", emailUnverified: true, staff: false });
+	it("matches a customer on an unverified email (temporary) but never makes it staff", () => {
+		expect(sessionFor({ sub: "x", email: "thandi@example.com", emailVerified: false }, env)).toEqual({ sub: "x", email: "thandi@example.com", customerId: "cus_thandi", staff: false });
 		expect(sessionFor({ sub: "x", email: "sam@bank.example", emailVerified: false }, env).staff).toBe(false);
 		expect(sessionFor({ sub: "x", email: "sam@bank.example", emailVerified: true }, env).staff).toBe(true);
 	});
