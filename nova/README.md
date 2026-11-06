@@ -2,7 +2,7 @@
 
 A fictional South African bank, headquartered in Paarl, that shows what a personal agent can do with the Personal Agent Protocol. It is a Poppyseed site, like Poppy Travel in `site/`, with a banking theme and a short list of services. Amounts are in South African rand (ZAR). Nothing here is real: no money, accounts or people. The directory and package keep the earlier name, `nova` and `nova-bank`, so the Railway services and their settings are unchanged.
 
-**Status:** phase 7 of 8. The Inspector has steps for the excluded tasks, browsing, and a blocked run, and [DEMO.md](DEMO.md) is a script for showing all five capabilities. Rates, branches, accounts, balances, transactions, payments, a support chat, browsing, excluded tasks and blocking work, with Direct and Device Sign-In and separate scopes. The conformance profile and hardening come next. The plan is in the project history; each phase adds one capability.
+**Status:** phase 8 of 8, complete. The Inspector has steps for the excluded tasks, browsing, and a blocked run, and [DEMO.md](DEMO.md) is a script for showing all five capabilities. Rates, branches, accounts, balances, transactions, payments, a support chat, browsing, excluded tasks and blocking work, with Direct and Device Sign-In and separate scopes. The plan is in the project history; each phase adds one capability.
 
 | Service | Shows | Phase |
 | --- | --- | --- |
@@ -13,6 +13,8 @@ A fictional South African bank, headquartered in Paarl, that shows what a person
 | Support chat | A Company Agent, with handoff to staff | 4, done |
 | Online banking pages | An agent's browser joining its Session | 5, done |
 | Blocking (all of the above) | Excluded tasks, agent feedback, and blocking a specific agent | 6, done |
+| Inspector steps and a demo script | Browsing, excluded tasks and a blocked run, shown | 7, done |
+| Conformance | `poppyseed check`: 94 pass, 0 fail, 14 skip by design | 8, done |
 
 ## Browsing
 
@@ -27,6 +29,26 @@ With `web: {}` an agent's browser can join its Session (`/poppy/browser-session`
 - **Blocking** (`lib/blocklist.ts`): `clients.block` refuses an agent by its `client_id`. Set `BLOCKED_CLIENTS` to URLs separated by spaces or commas, or block and unblock at `/staff?key=…`. A blocked agent gets `invalid_client` at its next Session; one it already has runs until its token expires (an hour by default). The list is in memory, so a restart returns to the variable.
 
 `scripts/block-local.ts` starts a local build and proves all three with real test agents.
+
+## Conformance
+
+`pnpm --filter nova-bank check` builds Protea Bank, starts it with the test hooks on, and runs `poppyseed check` against it: **94 checks pass, none fail, 14 skip**. Every skip is something Protea Bank does not offer, and each is listed with its reason in `scripts/check-local.ts`; the run fails if anything else starts to skip, so a new gap cannot hide.
+
+- `lib/conformance.ts` is the profile (which tools to call, which test people to use) and the company powers the suite needs: sign a test person in, end a Session, act as staff, read what `perform` was given.
+- They are served at `/test-hooks` **only when `POPPYSEED_TEST_HOOKS=1`**, which is set for the check run and nowhere else. The production service has no such variable, and `lib/conformance.test.ts` proves the route answers 404 without it. With the flag on, device codes poll every second and last ten, so the suite does not wait on real timings.
+- `/account/summary` is a plain-text account summary for browsing agents. It answers 200 with `accounts:read` (or for the customer in their own browser), 401 for nobody, and 403 naming the scope otherwise: the status the suite needs, and the one an agent can act on.
+
+What the skips mean, in short: Mediated Sign-In is off on purpose; any agent may start a Session (a blocklist refuses particular ones); the support assistant reads and explains but never changes anything or proposes an operation; payments finish at once and are confirmed by the agent or the person in the Inspector, not on the website.
+
+## Security notes
+
+This is a demonstration, and some of it is deliberately not a real bank's:
+
+- **Sign-in is a choice, not a login.** `/login` lets anyone pick one of the two customers, and the cookie holds the customer's id. Anyone who can reach the site can approve a Device Sign-In as Thandi. A real bank puts its own authentication in `accounts.current` and `lib/customers.ts`; Poppyseed only asks who is signed in. The money is fictional and the data resets on restart.
+- **The staff key travels in the address and in each form.** `/staff?key=…` is checked in constant time, in the page and again in every action, but the key can end up in browser history. A real console would use a login and a cookie.
+- **The test hooks sign anyone in.** They exist only behind `POPPYSEED_TEST_HOOKS=1`. Never set it on a service with real customers.
+- **Everything the site writes is escaped** (React's defaults; nothing uses `dangerouslySetInnerHTML`). Reports from agents, payee names and client ids are shown as text.
+- **State is in memory**, one process: payments, payees, the blocklist and reports reset when the service restarts.
 
 ## Run
 

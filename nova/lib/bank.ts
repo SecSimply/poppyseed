@@ -113,6 +113,7 @@ function seeded(): State {
 // so a payment made through the API would not show on the page.
 declare global {
 	var __proteaBank: State | undefined;
+	var __proteaPerformed: Map<string, unknown[]> | undefined;
 }
 const state = (globalThis.__proteaBank ??= seeded());
 export const TRANSACTIONS: Transaction[] = state.transactions;
@@ -176,6 +177,14 @@ export function parseAmount(text: string): number | undefined {
 }
 
 export const needsOwnApproval = (kind: keyof typeof OWN_APPROVAL_OVER_CENTS, cents: number): boolean => cents > OWN_APPROVAL_OVER_CENTS[kind];
+
+/** The terms each run of a payment's `perform` got, per operation, for the conformance suite's `performed` hook. Newest 200 operations. */
+const performedLog = (globalThis.__proteaPerformed ??= new Map<string, unknown[]>());
+export function recordPerformed(operationId: string, terms: unknown): void {
+	performedLog.set(operationId, [...(performedLog.get(operationId) ?? []), terms]);
+	for (const old of [...performedLog.keys()].slice(0, Math.max(0, performedLog.size - 200))) performedLog.delete(old);
+}
+export const performedTerms = (operationId: string): unknown[] => performedLog.get(operationId) ?? [];
 
 export type Moved = { ok: true; reference: string } | { ok: false; reason: string };
 

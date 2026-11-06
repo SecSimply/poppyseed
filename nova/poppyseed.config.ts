@@ -1,7 +1,7 @@
 import { definePoppyseed, memoryStore, OperationFailed, safeFetch, tool, ToolError } from "poppyseed";
 import { after } from "next/server";
 import { z } from "zod";
-import { accountOf, accountsOf, balanceCents, money, movePayment, needsOwnApproval, OWN_APPROVAL_OVER_CENTS, parseAmount, payeeOf, payeesOf, transactionsOf, zar } from "./lib/bank.ts";
+import { accountOf, accountsOf, balanceCents, money, movePayment, needsOwnApproval, OWN_APPROVAL_OVER_CENTS, parseAmount, payeeOf, payeesOf, recordPerformed, transactionsOf, zar } from "./lib/bank.ts";
 import { SITE_COOKIE, siteCustomer } from "./lib/customers.ts";
 import { proteaAgent } from "./lib/support.ts";
 import { BRANCHES, CITIES, RATES } from "./lib/products.ts";
@@ -61,7 +61,8 @@ const create = () =>
 		// The bank's assistant, and a person behind it. Staff take handoffs at /staff.
 		conversations: { agent: proteaAgent, handoff: { available: () => true } },
 		// Direct and Device Sign-In only. Mediated Sign-In has an agent type the customer's password, which a bank should not teach.
-		signIn: { direct: true, device: true },
+		// With the conformance hooks on, codes poll every second and last ten, so the suite does not wait on real timings.
+		signIn: { direct: true, device: process.env.POPPYSEED_TEST_HOOKS === "1" ? { interval: 1, expiresIn: 10 } : true },
 		// An agent's browser can join its Session, so the pages show what that Session may see.
 		web: {},
 
@@ -148,6 +149,7 @@ const create = () =>
 						};
 					},
 					perform: ({ id, terms }, ctx) => {
+						recordPerformed(id, terms);
 						const payee = payeeOf(ctx.account.id, terms.payee_id);
 						const cents = parseAmount(terms.amount.amount);
 						if (!payee || !cents) throw new OperationFailed("The payee is no longer available. Nothing was paid.");
@@ -181,6 +183,7 @@ const create = () =>
 						};
 					},
 					perform: ({ id, terms }, ctx) => {
+						recordPerformed(id, terms);
 						const cents = parseAmount(terms.amount.amount);
 						const to = accountOf(ctx.account.id, terms.to_account_id);
 						if (!cents || !to) throw new OperationFailed("An account is no longer available. Nothing was moved.");
