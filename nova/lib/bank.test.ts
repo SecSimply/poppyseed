@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ACCOUNTS, accountOf, accountsOf, balanceCents, money, movePayment, needsOwnApproval, parseAmount, payeeOf, payeesOf, TRANSACTIONS, transactionsOf, zar } from "./bank.ts";
+import { ACCOUNTS, accountOf, accountsOf, balanceCents, money, movePayment, needsOwnApproval, parseAmount, payeeOf, payeesOf, addPayee, MAX_PAYEES, TRANSACTIONS, transactionsOf, zar } from "./bank.ts";
 
 describe("ownership", () => {
 	it("gives a customer only their own accounts", () => {
@@ -113,5 +113,25 @@ describe("movePayment", () => {
 		expect(movePayment("op_theft", "cus_thandi", { from: "acc_pieter_everyday", description: "x", category: "payment", cents: 100 }).ok).toBe(false);
 		expect(movePayment("op_theft2", "cus_thandi", { from: "acc_thandi_everyday", to: "acc_pieter_everyday", description: "x", category: "transfer", cents: 100 }).ok).toBe(false);
 		expect(balanceCents(ben)).toBe(before);
+	});
+});
+
+describe("adding a payee", () => {
+	it("saves it for that customer only, showing the last four digits", () => {
+		const added = addPayee("cus_pieter", "  Karoo   Gym ", "1234 5678-90");
+		expect(added.ok && added.payee).toMatchObject({ customerId: "cus_pieter", name: "Karoo Gym", endingDigits: "7890" });
+		expect(payeesOf("cus_pieter").some((p) => p.name === "Karoo Gym")).toBe(true);
+		expect(payeesOf("cus_thandi").some((p) => p.name === "Karoo Gym")).toBe(false);
+	});
+
+	it("refuses a bad name or account number", () => {
+		expect(addPayee("cus_thandi", "A", "123456").ok).toBe(false);
+		expect(addPayee("cus_thandi", "Fine Name", "12ab56").ok).toBe(false);
+		expect(addPayee("cus_thandi", "Fine Name", "12345").ok).toBe(false);
+	});
+
+	it("stops at the limit", () => {
+		for (let i = 0; payeesOf("cus_thandi").length < MAX_PAYEES; i++) addPayee("cus_thandi", `Payee ${i}`, `10000${i}`);
+		expect(addPayee("cus_thandi", "One more", "999999").ok).toBe(false);
 	});
 });

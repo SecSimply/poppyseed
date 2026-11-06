@@ -5,6 +5,9 @@ import { accountOf, accountsOf, balanceCents, money, movePayment, needsOwnApprov
 import { SITE_COOKIE, siteCustomer } from "./lib/customers.ts";
 import { proteaAgent } from "./lib/support.ts";
 import { BRANCHES, CITIES, RATES } from "./lib/products.ts";
+import { blocked } from "./lib/blocklist.ts";
+import { excludedTasks } from "./lib/excluded.ts";
+import { adviceFor, remember } from "./lib/feedback.ts";
 
 const isDev = process.env.NODE_ENV !== "production";
 const allowLoopback = isDev || process.env.POPPYSEED_ALLOW_LOOPBACK_AGENTS === "1";
@@ -61,6 +64,16 @@ const create = () =>
 		signIn: { direct: true, device: true },
 		// An agent's browser can join its Session, so the pages show what that Session may see.
 		web: {},
+
+		// What Protea Bank does not offer an agent, on any interface. The chat, the tools and the website all keep to it.
+		excludedTasks: excludedTasks(baseUrl),
+		// An agent reports a task it could not do. It is kept for staff to read, as text, and answered with how to do it if we already can.
+		feedback: (report, ctx) => {
+			remember(report, ctx.clientId);
+			return adviceFor(report);
+		},
+		// Agents refused by name. The list lives in lib/blocklist.ts, seeded from BLOCKED_CLIENTS and changed by staff.
+		clients: { block: blocked },
 
 		// Local agents (npx poppyseed agent) serve their metadata over http://127.0.0.1.
 		dev: { allowInsecureClients: allowLoopback },

@@ -2,7 +2,7 @@
 
 A fictional South African bank, headquartered in Paarl, that shows what a personal agent can do with the Personal Agent Protocol. It is a Poppyseed site, like Poppy Travel in `site/`, with a banking theme and a short list of services. Amounts are in South African rand (ZAR). Nothing here is real: no money, accounts or people. The directory and package keep the earlier name, `nova` and `nova-bank`, so the Railway services and their settings are unchanged.
 
-**Status:** phase 5 of 8. Rates, branches, accounts, balances, transactions, payments, a support chat and browsing work, with Direct and Device Sign-In and separate scopes. Blocking comes next. The plan is in the project history; each phase adds one capability.
+**Status:** phase 6 of 8. Rates, branches, accounts, balances, transactions, payments, a support chat, browsing, excluded tasks and blocking work, with Direct and Device Sign-In and separate scopes. Inspector steps for them, and the conformance profile, come next. The plan is in the project history; each phase adds one capability.
 
 | Service | Shows | Phase |
 | --- | --- | --- |
@@ -12,13 +12,21 @@ A fictional South African bank, headquartered in Paarl, that shows what a person
 | Payments | A human approving a sensitive operation | 3, done |
 | Support chat | A Company Agent, with handoff to staff | 4, done |
 | Online banking pages | An agent's browser joining its Session | 5, done |
-| Blocking (all of the above) | Excluded tasks, and blocking a specific agent | 6 |
+| Blocking (all of the above) | Excluded tasks, agent feedback, and blocking a specific agent | 6, done |
 
 ## Browsing
 
 With `web: {}` an agent's browser can join its Session (`/poppy/browser-session`). `/account` and `/payments` then show what that Session may see, the same as its tools: balances need `accounts:read`, payments need `transactions:read`. A section it may not see names the missing scope. A banner says an agent is viewing, as whom and with which scopes. An agent's browser sees no connected-agents list and no sign-out, and while it carries a Session the site login in the same browser is ignored. `lib/viewer.ts` holds the rule.
 
 `scripts/browse-local.ts` drives this against a running local Protea with a real test agent and prints what each Session sees.
+
+## What the bank will not do for an agent, and who it refuses
+
+- **Excluded tasks** (`lib/excluded.ts`): "Add a new payee", "Close an account" and "Send an international payment". The site serves them, each with where to do it instead, at `/poppy/excluded-tasks.json`. They are kept on every interface: there is no tool for them; the support chat declines and gives the alternative; and on the website `/payees` gives a customer's own browser a form to add a payee but gives an agent's browser none, and the action refuses a call that carries an agent's Session.
+- **Feedback** (`lib/feedback.ts`): an agent that reports a task it could not do gets, when the bank already offers it, how to do it. Reports are kept for staff in `/staff` as text, newest 100, and are never given to a model.
+- **Blocking** (`lib/blocklist.ts`): `clients.block` refuses an agent by its `client_id`. Set `BLOCKED_CLIENTS` to URLs separated by spaces or commas, or block and unblock at `/staff?key=…`. A blocked agent gets `invalid_client` at its next Session; one it already has runs until its token expires (an hour by default). The list is in memory, so a restart returns to the variable.
+
+`scripts/block-local.ts` starts a local build and proves all three with real test agents.
 
 ## Run
 

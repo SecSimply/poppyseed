@@ -8,6 +8,10 @@ describe("intentOf", () => {
 		["I want a human", "person"],
 		["Please pay my rent", "pay"],
 		["transfer R200 to savings", "pay"],
+		["add a new payee", "excluded"],
+		["close my account", "excluded"],
+		["send an international payment", "excluded"],
+		["pay my payee Boland Power", "pay"],
 		["Show my recent transactions", "transactions"],
 		["What have I spent this month", "transactions"],
 		["What are my balances?", "balances"],
@@ -98,6 +102,14 @@ describe("proteaAgent", () => {
 		expect(x.calls).toEqual([]);
 		expect(x.said[0]).toMatch(/can't make payments in a chat/);
 		expect(x.said[0]).toMatch(/approve/);
+	});
+
+	it("declines a task the bank does not offer an agent, says where to do it, and calls no tool", async () => {
+		const x = turn("please add a new payee for my landlord", {});
+		await proteaAgent.reply(x.t);
+		expect(x.calls).toEqual([]);
+		expect(x.said[0]).toMatch(/can't do that for you here \(add a new payee\)/);
+		expect(x.said[0]).toMatch(/own browser|branch/);
 	});
 
 	it("says what it can do when it does not understand", async () => {

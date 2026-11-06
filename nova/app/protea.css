@@ -63,3 +63,5 @@ footer.site { border-top: 1px solid var(--line); background: var(--surface); mar
 footer.site .wrap { padding-block: 28px; display: grid; gap: 6px; font-size: 0.9rem; color: var(--muted); }
 footer.site strong { color: var(--fg); font-family: var(--f-serif); font-size: 1.05rem; }
 .ribbon { height: 5px; background: linear-gradient(90deg, var(--pr-bract), var(--pr-tip) 45%, var(--pr-cream) 70%, var(--leaf)); }
+input { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); width: min(100%, 360px); }
+label { display: block; }

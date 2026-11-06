@@ -1,13 +1,15 @@
 import type { AgentTurn, CompanyAgent } from "poppyseed";
 import { zar } from "./bank.ts";
+import { excludedTaskOf } from "./excluded.ts";
 import { CITIES } from "./products.ts";
 
 /** What a customer's message is asking for. Plain keyword matching: this is a scripted agent, and says what it can do. */
-export type Intent = "person" | "pay" | "transactions" | "balances" | "branch" | "rates" | "help";
+export type Intent = "person" | "excluded" | "pay" | "transactions" | "balances" | "branch" | "rates" | "help";
 
 export function intentOf(text: string): Intent {
 	const t = text.toLowerCase();
 	if (/\b(person|human|someone|somebody|operator|staff|colleague|real agent)\b/.test(t)) return "person";
+	if (excludedTaskOf(text)) return "excluded";
 	if (/\b(pay|paying|transfer|send money|wire|move money|payment)\b/.test(t)) return "pay";
 	if (/\b(transactions?|statement|spent|spending|recent activity|purchases)\b/.test(t)) return "transactions";
 	if (/\b(balances?|how much|my accounts?)\b/.test(t)) return "balances";
@@ -37,6 +39,11 @@ export const proteaAgent: CompanyAgent = {
 		switch (intentOf(text)) {
 			case "person":
 				return turn.handoff();
+			case "excluded": {
+				// A task the bank does not offer an agent, and where to do it. The same list the site serves.
+				const task = excludedTaskOf(text)!;
+				return turn.say(`I can't do that for you here (${task.task.toLowerCase()}). ${task.instructions} I can pass you to a person if you would like.`);
+			}
 			case "pay":
 				return turn.say("I can't make payments in a chat. A payment is proposed as an operation that you approve yourself, and larger ones need your own approval each time. Ask your personal agent to use the payment tools, or I can pass you to a person.");
 			case "rates": {

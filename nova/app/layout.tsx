@@ -35,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 							Protea Bank
 						</a>
 						<a href="/payments">Payments</a>
+						<a href="/payees">Payees</a>
 						<a href="/account">Account</a>
 					</div>
 				</nav>

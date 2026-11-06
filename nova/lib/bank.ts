@@ -76,10 +76,27 @@ const SEED: Seed[] = [
 	["acc_pieter_saver", 0, "Interest", "interest", 215_000],
 ];
 
-/** What changes while the bank runs: every transaction, and the payments already made. */
+/** A saved payee. An agent can pay these and cannot add one: that is an excluded task (phase 6). */
+export interface Payee {
+	id: string;
+	customerId: string;
+	name: string;
+	endingDigits: string;
+}
+
+const SEED_PAYEES: Payee[] = [
+	{ id: "pye_thandi_rent", customerId: "cus_thandi", name: "Dwarsrivier Rentals", endingDigits: "3302" },
+	{ id: "pye_thandi_energy", customerId: "cus_thandi", name: "Boland Power", endingDigits: "7741" },
+	{ id: "pye_thandi_friend", customerId: "cus_thandi", name: "Sipho Dlamini", endingDigits: "5518" },
+	{ id: "pye_pieter_rent", customerId: "cus_pieter", name: "Dwarsrivier Rentals", endingDigits: "3302" },
+	{ id: "pye_pieter_energy", customerId: "cus_pieter", name: "Boland Power", endingDigits: "7741" },
+];
+
+/** What changes while the bank runs: every transaction, the payments already made, and the saved payees. */
 interface State {
 	transactions: Transaction[];
 	applied: Map<string, Moved>;
+	payees: Payee[];
 }
 
 function seeded(): State {
@@ -89,7 +106,7 @@ function seeded(): State {
 		counter.set(accountId, n);
 		return { id: `txn_${accountId.slice(4)}_${n}`, accountId, date: day(daysAgo), description, category, cents };
 	});
-	return { transactions, applied: new Map() };
+	return { transactions, applied: new Map(), payees: SEED_PAYEES.map((p) => ({ ...p })) };
 }
 
 // One copy per process. A page and an API route can be bundled separately and would otherwise each get their own,
@@ -122,21 +139,24 @@ export function transactionsOf(account: Account, { from, to, limit = 20 }: Trans
 
 // --- payees and payments ---
 
-/** A saved payee. An agent can pay these and cannot add one: that is an excluded task (phase 6). */
-export interface Payee {
-	id: string;
-	customerId: string;
-	name: string;
-	endingDigits: string;
-}
+export const PAYEES: Payee[] = state.payees;
 
-export const PAYEES: Payee[] = [
-	{ id: "pye_thandi_rent", customerId: "cus_thandi", name: "Dwarsrivier Rentals", endingDigits: "3302" },
-	{ id: "pye_thandi_energy", customerId: "cus_thandi", name: "Boland Power", endingDigits: "7741" },
-	{ id: "pye_thandi_friend", customerId: "cus_thandi", name: "Sipho Dlamini", endingDigits: "5518" },
-	{ id: "pye_pieter_rent", customerId: "cus_pieter", name: "Dwarsrivier Rentals", endingDigits: "3302" },
-	{ id: "pye_pieter_energy", customerId: "cus_pieter", name: "Boland Power", endingDigits: "7741" },
-];
+export const MAX_PAYEES = 20;
+
+/**
+ * Saves a payee for a customer. Only the customer's own browser may call this: adding a payee is a task Protea Bank
+ * does not offer an agent (see excluded.ts), and the page checks who is asking before it gets here.
+ */
+export function addPayee(customerId: string, name: string, accountNumber: string): { ok: true; payee: Payee } | { ok: false; reason: string } {
+	const cleanName = name.trim().replace(/\s+/g, " ");
+	if (cleanName.length < 2 || cleanName.length > 60) return { ok: false, reason: "Give the payee a name of 2 to 60 characters." };
+	const digits = accountNumber.replace(/[\s-]/g, "");
+	if (!/^\d{6,12}$/.test(digits)) return { ok: false, reason: "An account number is 6 to 12 digits." };
+	if (payeesOf(customerId).length >= MAX_PAYEES) return { ok: false, reason: `You can save up to ${MAX_PAYEES} payees.` };
+	const payee: Payee = { id: `pye_${customerId.slice(4)}_${(state.payees.length + 1).toString(36)}${digits.slice(-3)}`, customerId, name: cleanName, endingDigits: digits.slice(-4) };
+	state.payees.push(payee);
+	return { ok: true, payee };
+}
 
 export const payeesOf = (customerId: string): Payee[] => PAYEES.filter((p) => p.customerId === customerId);
 export const payeeOf = (customerId: string, payeeId: string): Payee | undefined => PAYEES.find((p) => p.id === payeeId && p.customerId === customerId);
