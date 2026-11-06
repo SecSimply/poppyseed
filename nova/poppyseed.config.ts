@@ -59,6 +59,8 @@ const create = () =>
 		conversations: { agent: novaAgent, handoff: { available: () => true } },
 		// Direct and Device Sign-In only. Mediated Sign-In has an agent type the customer's password, which a bank should not teach.
 		signIn: { direct: true, device: true },
+		// An agent's browser can join its Session, so the pages show what that Session may see.
+		web: {},
 
 		// Local agents (npx poppyseed agent) serve their metadata over http://127.0.0.1.
 		dev: { allowInsecureClients: allowLoopback },

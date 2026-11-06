@@ -3,22 +3,27 @@ import { revalidatePath } from "next/cache";
 import { poppyseed } from "../../poppyseed.config";
 import { accountsOf, balanceCents, usd } from "../../lib/bank";
 import { SITE_COOKIE, siteCustomer } from "../../lib/customers";
+import { mayRead, viewer } from "../../lib/viewer";
+import { AgentBanner, NeedScope } from "../agent-banner";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Account" };
 
 /** The customer's account settings: connected personal agents, what each can do, and a way to disconnect them. */
 export default async function Account() {
-	const customer = siteCustomer((await cookies()).toString());
+	const who = await viewer();
+	const customer = who.via === "nobody" ? undefined : who.customer;
 	if (!customer) {
 		return (
 			<main>
 				<header className="hero"><h1>Account</h1></header>
-				<p className="card"><a href="/login?return_to=/account">Sign in</a> to manage your account.</p>
+				<AgentBanner viewer={who} />
+				{who.via === "agent" ? <p className="card">This session has not signed in to Nova Bank. Ask the customer to approve a sign-in with the <code>accounts:read</code> scope.</p> : <p className="card"><a href="/login?return_to=/account">Sign in</a> to manage your account.</p>}
 			</main>
 		);
 	}
-	const connections = await poppyseed.connections.list(customer.id);
+	// Connected agents and sign-out belong to the customer in their own browser; an agent's browser sees neither.
+	const connections = who.via === "site" ? await poppyseed.connections.list(customer.id) : [];
 	async function disconnect(form: FormData) {
 		"use server";
 		const who = siteCustomer((await cookies()).toString());
@@ -32,13 +37,14 @@ export default async function Account() {
 	}
 	return (
 		<main>
+			<AgentBanner viewer={who} />
 			<header className="hero">
 				<p className="kicker">Signed in as {customer.email}</p>
 				<h1>{customer.name}</h1>
 			</header>
 			<section aria-labelledby="accounts">
 				<h2 id="accounts">Your accounts</h2>
-				<div className="card scroll">
+				{!mayRead(who, "accounts:read") ? <NeedScope viewer={who} scope="accounts:read" what="your accounts and balances" /> : <div className="card scroll">
 					<table className="table">
 						<thead>
 							<tr><th>Account</th><th>Type</th><th className="r">Balance</th></tr>
@@ -53,9 +59,9 @@ export default async function Account() {
 							))}
 						</tbody>
 					</table>
-				</div>
+				</div>}
 			</section>
-			<section aria-labelledby="connected">
+			{who.via === "site" && <section aria-labelledby="connected">
 				<h2 id="connected">Connected personal agents</h2>
 				{connections.length === 0 ? (
 					<p className="muted">No personal agents are connected.</p>
@@ -81,10 +87,10 @@ export default async function Account() {
 						</table>
 					</div>
 				)}
-			</section>
-			<form action={signOut}>
+			</section>}
+			{who.via === "site" && <form action={signOut}>
 				<button type="submit" className="secondary">Sign out of Nova Bank</button>
-			</form>
+			</form>}
 		</main>
 	);
 }

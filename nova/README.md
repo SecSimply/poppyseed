@@ -2,7 +2,7 @@
 
 A fictional bank that shows what a personal agent can do with the Personal Agent Protocol. It is a Poppyseed site, like Poppy Travel in `site/`, with a banking theme and a short list of services. Nothing here is real: no money, accounts or people.
 
-**Status:** phase 4 of 8. Rates, branches, accounts, balances, transactions, payments and a support chat work, with Direct and Device Sign-In and separate scopes. Browsing and blocking come next. The plan is in the project history; each phase adds one capability.
+**Status:** phase 5 of 8. Rates, branches, accounts, balances, transactions, payments, a support chat and browsing work, with Direct and Device Sign-In and separate scopes. Blocking comes next. The plan is in the project history; each phase adds one capability.
 
 | Service | Shows | Phase |
 | --- | --- | --- |
@@ -11,8 +11,14 @@ A fictional bank that shows what a personal agent can do with the Personal Agent
 | Transactions | A second scope, separate from balances | 2, done |
 | Payments | A human approving a sensitive operation | 3, done |
 | Support chat | A Company Agent, with handoff to staff | 4, done |
-| Online banking pages | An agent's browser joining its Session | 5 |
+| Online banking pages | An agent's browser joining its Session | 5, done |
 | Blocking (all of the above) | Excluded tasks, and blocking a specific agent | 6 |
+
+## Browsing
+
+With `web: {}` an agent's browser can join its Session (`/poppy/browser-session`). `/account` and `/payments` then show what that Session may see, the same as its tools: balances need `accounts:read`, payments need `transactions:read`. A section it may not see names the missing scope. A banner says an agent is viewing, as whom and with which scopes. An agent's browser sees no connected-agents list and no sign-out, and while it carries a Session the site login in the same browser is ignored. `lib/viewer.ts` holds the rule.
+
+`scripts/browse-local.ts` drives this against a running local Nova with a real test agent and prints what each Session sees.
 
 ## Run
 
