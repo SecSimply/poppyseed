@@ -31,6 +31,7 @@ export function sessionFor(user: OidcUser, env: Env = process.env): Session {
 		...(user.email ? { email: user.email } : {}),
 		...(user.name ? { name: user.name } : {}),
 		...(customerById(mapped) ? { customerId: mapped } : {}),
+		...(user.emailVerified === false ? { emailUnverified: true as const } : {}),
 		staff: email !== undefined && parseEmails(env.STAFF_EMAILS).has(email),
 	};
 }

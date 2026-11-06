@@ -9,6 +9,8 @@ export interface Session {
 	name?: string;
 	/** The customer record this person is, when the provider's email maps to one. A signed-in person with none sees no accounts. */
 	customerId?: string;
+	/** Curity said this login's email is not verified, so it was not used to find a customer or staff. Kept so the page can say why. */
+	emailUnverified?: true;
 	/** May use the support console. Set by STAFF_EMAILS, which a person at the bank edits by hand. */
 	staff: boolean;
 }
@@ -64,7 +66,7 @@ export const sealLogin = (login: LoginInProgress, options: Options = {}): string
 export function openSession(token: string | undefined, options: Options = {}): Session | undefined {
 	const d = open("session", token, options);
 	if (!d || typeof d.sub !== "string") return undefined;
-	return { sub: d.sub, ...(typeof d.email === "string" ? { email: d.email } : {}), ...(typeof d.name === "string" ? { name: d.name } : {}), ...(typeof d.customerId === "string" ? { customerId: d.customerId } : {}), staff: d.staff === true };
+	return { sub: d.sub, ...(typeof d.email === "string" ? { email: d.email } : {}), ...(typeof d.name === "string" ? { name: d.name } : {}), ...(typeof d.customerId === "string" ? { customerId: d.customerId } : {}), ...(d.emailUnverified === true ? { emailUnverified: true as const } : {}), staff: d.staff === true };
 }
 
 export function openLogin(token: string | undefined, options: Options = {}): LoginInProgress | undefined {

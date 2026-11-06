@@ -30,7 +30,7 @@ describe("who a Curity user is", () => {
 	});
 
 	it("does not take an email the provider says is unverified for a customer or for staff", () => {
-		expect(sessionFor({ sub: "x", email: "thandi@example.com", emailVerified: false }, env)).toEqual({ sub: "x", email: "thandi@example.com", staff: false });
+		expect(sessionFor({ sub: "x", email: "thandi@example.com", emailVerified: false }, env)).toEqual({ sub: "x", email: "thandi@example.com", emailUnverified: true, staff: false });
 		expect(sessionFor({ sub: "x", email: "sam@bank.example", emailVerified: false }, env).staff).toBe(false);
 		expect(sessionFor({ sub: "x", email: "sam@bank.example", emailVerified: true }, env).staff).toBe(true);
 	});

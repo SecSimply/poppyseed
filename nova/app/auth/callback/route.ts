@@ -14,8 +14,11 @@ export async function GET(request: Request): Promise<Response> {
 	const login = openLogin(cookieValue(request.headers.get("cookie"), LOGIN_COOKIE));
 	try {
 		const user = await oidc.finish(new URL(request.url).searchParams, login?.state);
+		const session = sessionFor(user);
+		// What happened, without who: enough to see why a login found no accounts or no staff access.
+		console.log(`sign-in: email=${user.email ? "sent" : "not sent"} verified=${user.emailVerified ?? "not sent"} name=${user.name ? "sent" : "not sent"} customer=${session.customerId ? "linked" : "none"} staff=${session.staff}`);
 		const headers = new Headers({ location: new URL(login!.returnTo, baseUrl).toString(), "cache-control": "no-store" });
-		headers.append("set-cookie", sessionCookie(sessionFor(user)));
+		headers.append("set-cookie", sessionCookie(session));
 		headers.append("set-cookie", clearCookie(LOGIN_COOKIE));
 		return new Response(null, { status: 303, headers });
 	} catch (error) {

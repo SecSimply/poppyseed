@@ -8,7 +8,7 @@ import { sessionFrom } from "./session";
 export type Viewer =
 	| { via: "nobody" }
 	/** Signed in to the site, but not as anyone with accounts: a Curity login that CUSTOMER_EMAILS does not map to a customer. */
-	| { via: "visitor"; label: string }
+	| { via: "visitor"; label: string; emailUnverified?: true }
 	/** A customer signed in to the site in their own browser: they see everything of theirs. */
 	| { via: "site"; customer: Customer }
 	/** A personal agent's browser: it sees what its Session's scopes allow, the same as its tools, and nothing else. */
@@ -23,7 +23,7 @@ export function viewerOf(session: SessionContext | null, cookieHeader: string | 
 	const site = sessionFrom(cookieHeader);
 	const customer = customerById(site?.customerId);
 	if (customer) return { via: "site", customer };
-	return site ? { via: "visitor", label: site.name ?? site.email ?? "this login" } : { via: "nobody" };
+	return site ? { via: "visitor", label: site.name ?? site.email ?? "this login", ...(site.emailUnverified ? { emailUnverified: true as const } : {}) } : { via: "nobody" };
 }
 
 export async function viewer(): Promise<Viewer> {

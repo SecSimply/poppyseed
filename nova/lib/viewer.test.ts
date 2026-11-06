@@ -49,4 +49,9 @@ describe("mayRead", () => {
 		expect(mayRead(viewerOf(session(null), null), "accounts:read")).toBe(false);
 		expect(mayRead({ via: "nobody" }, "accounts:read")).toBe(false);
 	});
+
+	it("says when a login has no customer because Curity does not vouch for its email", () => {
+		const v = viewerOf(null, cookieOf({ sub: "s3", email: "t@gmail.com", emailUnverified: true, staff: false }));
+		expect(v).toEqual({ via: "visitor", label: "t@gmail.com", emailUnverified: true });
+	});
 });
