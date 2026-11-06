@@ -49,6 +49,7 @@ interface ProviderMetadata {
 	authorization_endpoint: string;
 	token_endpoint: string;
 	jwks_uri: string;
+	end_session_endpoint?: string;
 }
 
 interface Pending {
@@ -103,6 +104,18 @@ export class Oidc {
 			...extra,
 		}).toString();
 		return { url: url.toString(), state };
+	}
+
+	/**
+	 * Where to send the browser to sign the person out at the provider too (OpenID Connect RP-initiated logout), and
+	 * come back to `returnTo`, which must be registered at the provider. Undefined when the provider has no such endpoint.
+	 */
+	async logoutUrl(returnTo: string): Promise<string | undefined> {
+		const { metadata } = await this.provider();
+		if (!metadata.end_session_endpoint) return undefined;
+		const url = new URL(metadata.end_session_endpoint);
+		url.search = new URLSearchParams({ client_id: this.config.clientId, post_logout_redirect_uri: returnTo }).toString();
+		return url.toString();
 	}
 
 	/**
