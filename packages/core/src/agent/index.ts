@@ -662,7 +662,7 @@ export class TestAgent {
 			const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
 			return `${encode({ alg: "none", typ })}.${encode(claims)}.`;
 		}
-		return new SignJWT(claims).setProtectedHeader({ alg: "ES256", kid: "k1", typ, ...options.header }).sign(this.keys.signing.privateKey);
+		return new SignJWT(claims).setProtectedHeader({ alg: "ES256", kid: this.keys.signing.publicJwk.kid ?? "k1", typ, ...options.header }).sign(this.keys.signing.privateKey);
 	}
 
 	private assertion(spec: AssertionSpec | undefined, subject: string, audience: string): Promise<string> {
