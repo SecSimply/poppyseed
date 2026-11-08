@@ -1,5 +1,6 @@
 import type { OidcUser } from "oidc-login";
 import { customerById } from "./customers.ts";
+import type { Links } from "./links.ts";
 import type { Session } from "./session.ts";
 
 type Env = Record<string, string | undefined>;
@@ -18,20 +19,19 @@ export function parseCustomerEmails(text: string | undefined): Map<string, strin
 export const parseEmails = (text: string | undefined): Set<string> => new Set((text ?? "").split(/[\s,]+/).map((e) => e.trim().toLowerCase()).filter(Boolean));
 
 /**
- * The session for someone who has just signed in at the provider. A customer is who CUSTOMER_EMAILS says; anyone else
- * signs in and sees no accounts. Staff is who STAFF_EMAILS lists, which is empty unless someone edits it, so a
- * customer's login never opens the support console.
+ * The session for someone who has just signed in at the provider. Which customer they are is not in the session: the
+ * link table says, on every request, so unlinking takes effect at once. A login with no link is noted as pending for
+ * staff to link; until then it signs in and sees no accounts. Staff is who STAFF_EMAILS lists, which is empty unless
+ * someone edits it, so a customer's login never opens the support console.
  */
-export function sessionFor(user: OidcUser, env: Env = process.env): Session {
-	// TEMPORARY: customers are matched on email even when the provider says it is unverified (Curity's email_verified is not yet being set). Staff still needs a verified email.
-	const anyEmail = user.email?.toLowerCase();
-	const email = user.emailVerified === false ? undefined : anyEmail;
-	const mapped = anyEmail ? parseCustomerEmails(env.CUSTOMER_EMAILS).get(anyEmail) : undefined;
-	return {
-		sub: user.sub,
-		...(user.email ? { email: user.email } : {}),
-		...(user.name ? { name: user.name } : {}),
-		...(customerById(mapped) ? { customerId: mapped } : {}),
-		staff: email !== undefined && parseEmails(env.STAFF_EMAILS).has(email),
-	};
+export async function sessionFor(user: OidcUser, links: Links, env: Env = process.env): Promise<Session> {
+	const who = { sub: user.sub, ...(user.email ? { email: user.email } : {}), ...(user.name ? { name: user.name } : {}) };
+	if (!(await links.customerFor(user.sub))) {
+		// TEMPORARY: a login whose email CUSTOMER_EMAILS lists is linked once, on its first sign-in, even when the provider says the email is unverified (Curity's email_verified is not yet being set). Delete this with the variable.
+		const mapped = user.email ? parseCustomerEmails(env.CUSTOMER_EMAILS).get(user.email.toLowerCase()) : undefined;
+		if (mapped && customerById(mapped)) await links.link(who, mapped, "CUSTOMER_EMAILS");
+		else await links.notePending(who);
+	}
+	const verifiedEmail = user.emailVerified === false ? undefined : user.email?.toLowerCase();
+	return { ...who, staff: verifiedEmail !== undefined && parseEmails(env.STAFF_EMAILS).has(verifiedEmail) };
 }

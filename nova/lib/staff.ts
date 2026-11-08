@@ -20,6 +20,9 @@ export interface StaffAccess {
 	name: string;
 }
 
+/** Whether this staff access may link or unlink a login. A link opens a customer's accounts, so it takes a Curity staff sign-in: the emergency key, which could leak, does not. */
+export const mayLink = (access: StaffAccess): boolean => access.by === "session";
+
 /**
  * Whether this request may use the console. A signed-in staff member may, by session. Otherwise the emergency key
  * may, as before. Checked again in every action: an action can be called without loading the page.

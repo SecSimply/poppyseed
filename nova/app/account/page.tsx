@@ -27,7 +27,7 @@ export default async function Account() {
 	const connections = who.via === "site" ? await poppyseed.connections.list(customer.id) : [];
 	async function disconnect(form: FormData) {
 		"use server";
-		const who = siteCustomer((await cookies()).toString());
+		const who = await siteCustomer((await cookies()).toString());
 		if (who) await poppyseed.connections.disconnect(who.id, String(form.get("client_id")));
 		revalidatePath("/account");
 	}

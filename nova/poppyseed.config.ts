@@ -47,8 +47,8 @@ const create = () =>
 
 		// Who is signed in to Protea Bank itself, so consent pages know whose accounts they connect.
 		accounts: {
-			current: (request) => {
-				const customer = siteCustomer(request.headers.get("cookie"));
+			current: async (request) => {
+				const customer = await siteCustomer(request.headers.get("cookie"));
 				return customer ? { id: customer.id, label: customer.email } : null;
 			},
 			signInUrl: (returnTo) => `/login?return_to=${encodeURIComponent(returnTo)}`,

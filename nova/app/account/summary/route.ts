@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(request: Request): Promise<Response> {
 	const cookie = request.headers.get("cookie");
-	const who = viewerOf(await poppyseed.browserSession(request), cookie);
+	const who = await viewerOf(await poppyseed.browserSession(request), cookie);
 	const headers = { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" };
 	if (who.via === "nobody" || who.via === "visitor") return new Response("Sign in to Protea Bank to see your accounts.", { status: 401, headers });
 	if (!mayRead(who, "accounts:read")) return new Response("This page needs the accounts:read scope. Ask the customer to approve a sign-in with it.", { status: 403, headers });

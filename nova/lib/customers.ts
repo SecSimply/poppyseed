@@ -1,4 +1,6 @@
-import { sessionFrom } from "./session.ts";
+import { secure } from "./env.ts";
+import { links } from "./links.ts";
+import { sessionFrom, type Session } from "./session.ts";
 
 /**
  * Protea Bank's customers: two fictional people, with accounts. Who is signed in comes from the sealed session cookie
@@ -20,7 +22,16 @@ export function customerById(id: string | undefined): Customer | undefined {
 	return CUSTOMERS.find((c) => c.id === id);
 }
 
-/** The customer signed in to the site in this request's browser, from the session cookie. */
-export function siteCustomer(cookieHeader: string | null): Customer | undefined {
-	return customerById(sessionFrom(cookieHeader)?.customerId);
+/**
+ * The customer a signed-in session is. A session that names its customer (the local demonstration login, the
+ * conformance suite) is that customer. Any other is whoever the link table says its `sub` is, asked afresh each time.
+ */
+export async function customerOfSession(session: Session | undefined): Promise<Customer | undefined> {
+	if (!session) return undefined;
+	// Deployed over https, only the link table counts: the demonstration login and the test cookies exist only locally, and a cookie issued before links existed must not outlive an unlink.
+	const named = secure && process.env.POPPYSEED_TEST_HOOKS !== "1" ? undefined : session.customerId;
+	return customerById(named ?? (await (await links()).customerFor(session.sub)));
 }
+
+/** The customer signed in to the site in this request's browser, from the session cookie. */
+export const siteCustomer = async (cookieHeader: string | null): Promise<Customer | undefined> => customerOfSession(sessionFrom(cookieHeader));

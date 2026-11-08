@@ -1,5 +1,6 @@
 import { sessionFor } from "../../../lib/auth";
 import { baseUrl } from "../../../lib/env";
+import { links } from "../../../lib/links";
 import { oidc } from "../../../lib/oidc";
 import { clearCookie, cookieValue, LOGIN_COOKIE, openLogin, sessionCookie } from "../../../lib/session";
 
@@ -14,9 +15,10 @@ export async function GET(request: Request): Promise<Response> {
 	const login = openLogin(cookieValue(request.headers.get("cookie"), LOGIN_COOKIE));
 	try {
 		const user = await oidc.finish(new URL(request.url).searchParams, login?.state);
-		const session = sessionFor(user);
+		const store = await links();
+		const session = await sessionFor(user, store);
 		// What happened, without who: enough to see why a login found no accounts or no staff access.
-		console.log(`sign-in: email=${user.email ? "sent" : "not sent"} verified=${user.emailVerified ?? "not sent"} name=${user.name ? "sent" : "not sent"} customer=${session.customerId ? "linked" : "none"} staff=${session.staff}`);
+		console.log(`sign-in: email=${user.email ? "sent" : "not sent"} verified=${user.emailVerified ?? "not sent"} name=${user.name ? "sent" : "not sent"} customer=${(await store.customerFor(user.sub)) ? "linked" : "pending"} staff=${session.staff}`);
 		const headers = new Headers({ location: new URL(login!.returnTo, baseUrl).toString(), "cache-control": "no-store" });
 		headers.append("set-cookie", sessionCookie(session));
 		headers.append("set-cookie", clearCookie(LOGIN_COOKIE));
@@ -25,6 +27,6 @@ export async function GET(request: Request): Promise<Response> {
 		// By name: this route and the library may be bundled separately, so `instanceof` is not reliable here.
 		if (error instanceof Error && error.name === "BadCallback") return page(400, "The sign-in could not be completed. Please start again.");
 		console.error("sign-in failed:", error instanceof Error ? error.message : error);
-		return page(502, "Curity could not be reached, or refused the sign-in. Please try again in a moment.");
+		return page(502, "Protea Bank could not finish the sign-in: Curity or the bank's records could not be reached. Please try again in a moment.");
 	}
 }

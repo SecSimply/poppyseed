@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import type { SessionContext } from "poppyseed";
 import { poppyseed } from "../poppyseed.config";
-import { customerById, type Customer } from "./customers";
+import { customerById, customerOfSession, type Customer } from "./customers";
 import { sessionFrom } from "./session";
 
 /** What the person or agent looking at a page may see. Reading balances and reading transactions are separate scopes. */
@@ -15,13 +15,13 @@ export type Viewer =
 	| { via: "agent"; clientId: string; customer?: Customer; scopes: string[] };
 
 /**
- * Pure part of `viewer()`. An agent's browser carries its Session's cookie, and while it does the page is that
+ * The part of `viewer()` that takes its inputs as arguments. An agent's browser carries its Session's cookie, and while it does the page is that
  * Session's, signed in or not, whatever login cookie the browser also holds.
  */
-export function viewerOf(session: SessionContext | null, cookieHeader: string | null): Viewer {
+export async function viewerOf(session: SessionContext | null, cookieHeader: string | null): Promise<Viewer> {
 	if (session) return { via: "agent", clientId: session.clientId, customer: customerById(session.account?.id), scopes: session.account?.scopes ?? [] };
 	const site = sessionFrom(cookieHeader);
-	const customer = customerById(site?.customerId);
+	const customer = await customerOfSession(site ?? undefined);
 	if (customer) return { via: "site", customer };
 	return site ? { via: "visitor", label: site.name ?? site.email ?? "this login", ...(site.emailUnverified ? { emailUnverified: true as const } : {}) } : { via: "nobody" };
 }

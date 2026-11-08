@@ -4,10 +4,12 @@ import { notFound, redirect } from "next/navigation";
 import { poppyseed } from "../../poppyseed.config";
 import { entries, record } from "../../lib/audit";
 import { block, blocked, unblock } from "../../lib/blocklist";
+import { CUSTOMERS, customerById } from "../../lib/customers";
 import { reports } from "../../lib/feedback";
+import { links } from "../../lib/links";
 import { oidc } from "../../lib/oidc";
 import { sessionFrom } from "../../lib/session";
-import { staffAccess } from "../../lib/staff";
+import { mayLink, staffAccess } from "../../lib/staff";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Support", robots: { index: false } };
@@ -16,6 +18,16 @@ export const metadata = { title: "Support", robots: { index: false } };
 async function actor(form: FormData) {
 	const who = staffAccess((await cookies()).toString(), form.get("key"));
 	if (!who) throw new Error("not allowed");
+	return who;
+}
+
+/**
+ * Who may link a login to a customer. A link opens that customer's accounts to the login, so it takes a staff member
+ * signed in with Curity: the emergency key, which could be leaked, does not.
+ */
+async function linker(form: FormData) {
+	const who = await actor(form);
+	if (!mayLink(who)) throw new Error("linking needs a staff sign-in");
 	return who;
 }
 
@@ -43,6 +55,7 @@ export default async function Staff({ searchParams }: { searchParams: Promise<{ 
 		);
 	}
 	const queue = await poppyseed.conversations.queue();
+	const [pendingLogins, linkedLogins] = await Promise.all([(await links()).pending(), (await links()).linked()]);
 	const open = id ? await poppyseed.conversations.get(id) : undefined;
 	// The key travels in forms and links only when it is how this person got in.
 	const keyField = who.by === "key" && typeof key === "string" ? key : "";
@@ -83,6 +96,33 @@ export default async function Staff({ searchParams }: { searchParams: Promise<{ 
 		const client = String(form.get("client_id") ?? "");
 		unblock(client);
 		record(me, `unblocked ${client}`);
+		revalidatePath("/staff");
+	}
+
+	async function linkLogin(form: FormData) {
+		"use server";
+		const me = await linker(form);
+		const store = await links();
+		const sub = String(form.get("sub") ?? "");
+		const customer = customerById(String(form.get("customer") ?? ""));
+		// Only a login that has signed in and is waiting, with the email and name it signed in with.
+		const waiting = (await store.pending()).find((p) => p.sub === sub);
+		if (waiting && customer) {
+			await store.link(waiting, customer.id, me.name);
+			record(me, `linked ${waiting.email ?? waiting.sub} to ${customer.id}`);
+		}
+		revalidatePath("/staff");
+	}
+	async function unlinkLogin(form: FormData) {
+		"use server";
+		const me = await linker(form);
+		const store = await links();
+		const sub = String(form.get("sub") ?? "");
+		const was = (await store.linked()).find((l) => l.sub === sub);
+		if (was) {
+			await store.unlink(sub);
+			record(me, `unlinked ${was.email ?? was.sub} from ${was.customerId}`);
+		}
 		revalidatePath("/staff");
 	}
 
@@ -140,6 +180,40 @@ export default async function Staff({ searchParams }: { searchParams: Promise<{ 
 					</form>
 				</section>
 			)}
+			<section aria-labelledby="logins">
+				<h2 id="logins">Customer logins</h2>
+				<p className="muted">A login that signs in to Protea Bank sees no accounts until you link it to a customer. A link gives that login the customer's accounts, so link one only when you know the person. Unlinking takes effect at the login's next request.{!mayLink(who) ? " Linking needs a staff sign-in with Curity; the emergency key can only look." : ""}</p>
+				<div className="card scroll">
+					<h3>Waiting to be linked</h3>
+					{pendingLogins.length === 0 && <p className="muted">No login is waiting.</p>}
+					{pendingLogins.map((p) => (
+						<form action={linkLogin} key={p.sub}>
+							<input type="hidden" name="sub" value={p.sub} />
+							<input type="hidden" name="key" value={keyField} />
+							<strong>{p.email ?? "no email"}</strong> <span className="muted">{p.name ?? ""} · {p.seenAt.slice(0, 16).replace("T", " ")}</span>{" "}
+							{mayLink(who) && (
+								<>
+									<select name="customer" required defaultValue="">
+										<option value="" disabled>Customer…</option>
+										{CUSTOMERS.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+									</select>
+									<button type="submit">Link</button>
+								</>
+							)}
+						</form>
+					))}
+					<h3>Linked</h3>
+					{linkedLogins.length === 0 && <p className="muted">No login is linked.</p>}
+					{linkedLogins.map((l) => (
+						<form action={unlinkLogin} key={l.sub}>
+							<input type="hidden" name="sub" value={l.sub} />
+							<input type="hidden" name="key" value={keyField} />
+							<strong>{l.email ?? "no email"}</strong> <span className="muted">is {customerById(l.customerId)?.name ?? l.customerId} · linked by {l.linkedBy}</span>{" "}
+							{mayLink(who) && <button type="submit" className="secondary">Unlink</button>}
+						</form>
+					))}
+				</div>
+			</section>
 			<section aria-labelledby="blocked">
 				<h2 id="blocked">Blocked agents</h2>
 				<p className="muted">A personal agent is refused by its client_id, the URL of its metadata. It stops at its next Session: one it already has runs until its token expires. The list is kept in memory and goes back to the BLOCKED_CLIENTS variable on a restart.</p>
