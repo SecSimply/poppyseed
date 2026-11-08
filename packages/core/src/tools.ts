@@ -19,6 +19,8 @@ export interface ToolInfo {
 	scope: string | null;
 	inputSchema: unknown;
 	proposesOperation: boolean;
+	/** MCP tool annotations: read-only only when the tool says so, and an operation tool is never read-only. */
+	annotations: { readOnlyHint: boolean; destructiveHint: boolean };
 }
 
 /** Your tools, as every channel calls them: scope check, input validation, operations, and errors agents may see. */
@@ -39,6 +41,7 @@ export class Tools {
 			scope: tool.scope,
 			inputSchema: z.toJSONSchema(tool.input, { target: "draft-2020-12", io: "input" }),
 			proposesOperation: Boolean(tool.operation),
+			annotations: tool.operation || !tool.readOnly ? { readOnlyHint: false, destructiveHint: true } : { readOnlyHint: true, destructiveHint: false },
 		}));
 		this.hasOperations = this.list.some((t) => t.proposesOperation);
 	}

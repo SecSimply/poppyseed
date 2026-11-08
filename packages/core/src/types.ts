@@ -50,6 +50,8 @@ interface ToolBase<Input extends z.ZodType, Scope extends string | null> {
 /** A tool that answers right away, such as a search. */
 export interface RunTool<Input extends z.ZodType = z.ZodType, Scope extends string | null = string | null, Output = unknown> extends ToolBase<Input, Scope> {
 	run(input: z.output<Input>, ctx: ContextFor<Scope>): Promise<Output> | Output;
+	/** Declare true only for a tool that changes nothing. MCP clients then treat it as safe to call without asking; undeclared tools are shown as able to change things. */
+	readOnly?: boolean;
 	operation?: never;
 }
 

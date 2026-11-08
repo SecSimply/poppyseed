@@ -77,6 +77,7 @@ const create = () =>
 
 		tools: {
 			list_accounts: tool({
+				readOnly: true,
 				description: "Your Protea Bank accounts with their balances. Shows only the last four digits of each account number.",
 				scope: "accounts:read",
 				input: z.object({}),
@@ -91,6 +92,7 @@ const create = () =>
 				}),
 			}),
 			list_transactions: tool({
+				readOnly: true,
 				description: "Transactions on one of your accounts, newest first. It doesn't show balances; list_accounts does.",
 				scope: "transactions:read",
 				input: z.object({
@@ -115,6 +117,7 @@ const create = () =>
 				},
 			}),
 			list_payees: tool({
+				readOnly: true,
 				description: "Your saved payees, the only people and companies a payment can go to. It can't add a payee.",
 				scope: "payments:write",
 				input: z.object({}),
@@ -189,12 +192,14 @@ const create = () =>
 				},
 			}),
 			get_rates: tool({
+				readOnly: true,
 				description: "Protea Bank's published rates for savings, mortgages and personal loans. No sign-in needed.",
 				scope: null,
 				input: z.object({ product: z.enum(["savings", "mortgage", "personal_loan"]).optional().describe("Leave out to list every product") }),
 				run: ({ product }) => ({ rates: RATES.filter((r) => !product || r.product === product), as_of: new Date().toISOString().slice(0, 10) }),
 			}),
 			find_branch: tool({
+				readOnly: true,
 				description: `Protea Bank branches and whether they have an ATM. Cities served: ${CITIES.join(", ")}. No sign-in needed.`,
 				scope: null,
 				input: z.object({ city: z.string().optional().describe("City name; leave out to list every branch"), atm_only: z.boolean().optional() }),

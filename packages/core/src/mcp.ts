@@ -43,7 +43,7 @@ export async function mcpEndpoint(request: Request, tools: Tools, serverName: st
 			return rpcResult(rpc.id, {});
 		case "tools/list":
 			return rpcResult(rpc.id, {
-				tools: tools.list.map((t) => ({ name: t.name, description: t.scope ? `${t.description} (requires ${t.scope})` : t.description, inputSchema: t.inputSchema })),
+				tools: tools.list.map((t) => ({ name: t.name, description: t.scope ? `${t.description} (requires ${t.scope})` : t.description, inputSchema: t.inputSchema, annotations: t.annotations })),
 			});
 		case "tools/call":
 			return callTool(rpc, tools, auth);

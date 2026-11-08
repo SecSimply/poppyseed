@@ -207,6 +207,9 @@ export const UNIT_MUTANTS: UnitMutant[] = [
 	{ name: "private addresses connect", file: "packages/core/src/safe-fetch.ts", find: "addresses.some(({ address }) => isPrivateHost(address))", replace: "false", test: "packages/core/test/safe-fetch.test.ts", caughtBy: "safeFetch > refuses a hostname that resolves to loopback" },
 	{ name: "one address when Node asks for all", file: "packages/core/src/safe-fetch.ts", find: "if (options.all) return callback(null, addresses);", replace: "", test: "packages/core/test/safe-fetch.test.ts", caughtBy: "safeFetch > connects to a public address on Node 20+" },
 
+	// MCP tool annotations.
+	{ name: "every tool reads as read-only", file: "packages/core/src/tools.ts", find: "tool.operation || !tool.readOnly ?", replace: "false ?", test: "packages/core/test/tool-annotations.test.ts", caughtBy: "marks only tools that declare themselves read-only, and never an operation" },
+
 	// Metadata cache bounds, with a fake clock.
 	{ name: "max-age ignored", file: "packages/core/src/clients.ts", find: "Math.min(MAX_CACHE_MS, Math.max(MIN_CACHE_MS, Math.min(metadata.maxAgeMs, keySet.maxAgeMs)))", replace: "MIN_CACHE_MS", test: "packages/core/test/client-cache.test.ts", caughtBy: "metadata caching > keeps metadata for its max-age" },
 	{ name: "cache unbounded", file: "packages/core/src/clients.ts", find: "Math.min(MAX_CACHE_MS, Math.max(MIN_CACHE_MS, Math.min(metadata.maxAgeMs, keySet.maxAgeMs)))", replace: "Math.min(metadata.maxAgeMs, keySet.maxAgeMs)", test: "packages/core/test/client-cache.test.ts", caughtBy: "metadata caching > keeps it at least a minute and at most a day" },
