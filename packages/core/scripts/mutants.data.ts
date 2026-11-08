@@ -212,6 +212,7 @@ export const UNIT_MUTANTS: UnitMutant[] = [
 	{ name: "any account may approve", file: "packages/core/src/operations.ts", find: "return op?.owner.account?.id === accountId ? op : undefined;", replace: "return op;", test: "packages/core/test/operations-approve.test.ts", caughtBy: "lets only the owning account approve, for the latest revision" },
 	{ name: "approval can run twice", file: "packages/core/src/operations.ts", find: 'current.state === "proposed" && current.revision === revision && current.expiresAt > Date.now()', replace: "current.revision === revision && current.expiresAt > Date.now()", test: "packages/core/test/operations-approve.test.ts", caughtBy: "performs once however often it is approved" },
 
+	{ name: "approval page can be framed", file: "nova/lib/approval-headers.ts", find: "frame-ancestors 'none'", replace: "frame-ancestors *", test: "nova/lib/approval-headers.test.ts", caughtBy: "refuses to be framed and is never cached on the approval page" },
 	// MCP tool annotations.
 	{ name: "every tool reads as read-only", file: "packages/core/src/tools.ts", find: "tool.operation || !tool.readOnly ?", replace: "false ?", test: "packages/core/test/tool-annotations.test.ts", caughtBy: "marks only tools that declare themselves read-only, and never an operation" },
 
