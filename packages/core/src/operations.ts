@@ -90,6 +90,9 @@ export async function agentSupportsOperations(clients: ClientRegistry, clientId:
 	return ext?.version === "1";
 }
 
+/** A proposal's page, with `{id}` replaced by the operation ID. */
+const withId = (url: string | undefined, id: string) => url?.replace("{id}", id);
+
 const opKey = (id: string) => `operation:${id}`;
 const isFinal = (op: OperationRecord) => op.result !== null;
 
@@ -112,7 +115,10 @@ export class Operations {
 		const owner = { sessionId: ctx.sessionId, clientId: ctx.clientId, userId: ctx.userId, account: ctx.account };
 		const expiresAt = Date.now() + (proposal.expiresIn ?? 15 * 60) * 1000;
 		const terms = { summary: proposal.summary, terms: proposal.terms, userApprovalRequired: proposal.userApprovalRequired ?? false, url: proposal.url, expiresAt };
-		const fresh = (): OperationRecord => ({ id: randomId("op"), tool: name, key: proposal.key, owner, scope: tool.scope, revision: 1, state: "proposed", confirmation: null, result: null, ...terms });
+		const fresh = (): OperationRecord => {
+			const id = randomId("op");
+			return { id, tool: name, key: proposal.key, owner, scope: tool.scope, revision: 1, state: "proposed", confirmation: null, result: null, ...terms, url: withId(terms.url, id) };
+		};
 		if (proposal.key === undefined) return this.save(fresh());
 
 		// The same action in the same Session (or account) is one operation, whichever channel proposes it.
@@ -134,7 +140,7 @@ export class Operations {
 			if (same) return existing;
 			// New terms: the next revision of the same operation. Earlier revisions are never edited (extension 3.1).
 			const revised = await this.transition(existing.id, (current) =>
-				current.state === "proposed" && current.revision === existing.revision ? { ...current, ...terms, revision: current.revision + 1 } : undefined,
+				current.state === "proposed" && current.revision === existing.revision ? { ...current, ...terms, url: withId(terms.url, current.id), revision: current.revision + 1 } : undefined,
 			);
 			if (revised) return revised;
 		}
@@ -187,15 +193,41 @@ export class Operations {
 		if (op.userApprovalRequired && approved_by !== "user") {
 			throw new PoppyError(403, "user_approval_required", "this operation needs the User's own approval of this revision", { body: { operation: operationJson(op) } });
 		}
+		return this.claim(op, revision, approved_by, auth.ctx);
+	}
+
+	/** An operation proposed signed in to this account, or undefined. */
+	async ownedBy(id: string, accountId: string): Promise<OperationRecord | undefined> {
+		const op = await this.read(id);
+		return op?.owner.account?.id === accountId ? op : undefined;
+	}
+
+	/**
+	 * Approval by the account holder signed in to the Company's own website,
+	 * not by the Personal Agent. The caller has already checked who they are.
+	 * It is the same operation as at the endpoint, so it can't run twice.
+	 */
+	async approve(id: string, accountId: string, revision: number): Promise<{ op: OperationRecord; settled: Promise<void> }> {
+		const op = await this.ownedBy(id, accountId);
+		const owner = op?.owner;
+		if (!op || !owner?.account) throw new PoppyError(404, "operation_not_found", "no such operation for this account");
+		if (op.state !== "proposed") return { op, settled: Promise.resolve() };
+		if (revision !== op.revision) {
+			throw new PoppyError(409, "terms_changed", `revision ${op.revision} is the latest`, { body: { operation: operationJson(op) } });
+		}
+		return this.claim(op, revision, "user", { sessionId: owner.sessionId, clientId: owner.clientId, userId: owner.userId, account: owner.account });
+	}
+
+	/** The one transition that lets the action run: proposed to in_progress, once. */
+	private async claim(op: OperationRecord, revision: number, approved_by: Confirmation["approved_by"], ctx: SessionContext): Promise<{ op: OperationRecord; settled: Promise<void> }> {
 		const confirmation = { revision, approved_by, confirmed_at: new Date().toISOString() } as const;
-		// The one transition that lets the action run: proposed to in_progress, once.
-		const claimed = await this.transition(id, (current) =>
+		const claimed = await this.transition(op.id, (current) =>
 			current.state === "proposed" && current.revision === revision && current.expiresAt > Date.now()
 				? { ...current, state: "in_progress", confirmation, result: null }
 				: undefined,
 		);
-		if (!claimed || claimed.state !== "in_progress") return { op: (await this.owned(id, auth.ctx)), settled: Promise.resolve() };
-		return { op: claimed, settled: this.perform(claimed, auth.ctx) };
+		if (!claimed || claimed.state !== "in_progress") return { op: (await this.read(op.id)) ?? op, settled: Promise.resolve() };
+		return { op: claimed, settled: this.perform(claimed, ctx) };
 	}
 
 	/** POST {endpoint}/{id}/cancel (extension 7). */

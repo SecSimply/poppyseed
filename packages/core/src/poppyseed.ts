@@ -57,9 +57,15 @@ export interface Poppyseed<C extends PoppyseedConfig = PoppyseedConfig> {
 	browserSession(request: Request): Promise<SessionContext | null>;
 	/** Operations your tools proposed (operations extension). */
 	operations: {
-		get(operationId: string): Promise<OperationView | undefined>;
+		/** An operation by ID. With `accountId`, only if it belongs to that account: use it for pages a customer sees. */
+		get(operationId: string, accountId?: string): Promise<OperationView | undefined>;
 		/** Confirms an operation from your website, for the browser's Session. It is the same operation, so it can't run twice. */
 		confirm(operationId: string, session: SessionContext, revision: number): Promise<OperationView>;
+		/**
+		 * Approves an operation for the account holder signed in to your website, such as from the page its `url` names.
+		 * Check who they are first; it throws operation_not_found unless the operation belongs to `accountId`.
+		 */
+		approve(operationId: string, accountId: string, revision: number): Promise<OperationView>;
 		/** Records the outcome of an operation still in progress, for when `perform` couldn't tell whether it took effect. Final operations never change. */
 		settle(operationId: string, state: "succeeded" | "failed" | "cancelled", result: OperationResult): Promise<void>;
 	};
@@ -194,12 +200,17 @@ export function definePoppyseed<C extends PoppyseedConfig>(input: C): Poppyseed<
 		endSession: (sessionId) => config.store.delete(key.session(sessionId)),
 		browserSession: (request) => readBrowserSession(request, config, sealer),
 		operations: {
-			async get(operationId) {
-				const op = await operations.read(operationId);
+			async get(operationId, accountId) {
+				const op = await (accountId === undefined ? operations.read(operationId) : operations.ownedBy(operationId, accountId));
 				return op && operationJson(op);
 			},
 			async confirm(operationId, session, revision) {
 				const { op, settled } = await operations.confirm(operationId, guardedFrom(session), { revision, approved_by: "user" });
+				config.waitUntil?.(settled);
+				return operationJson(op);
+			},
+			async approve(operationId, accountId, revision) {
+				const { op, settled } = await operations.approve(operationId, accountId, revision);
 				config.waitUntil?.(settled);
 				return operationJson(op);
 			},

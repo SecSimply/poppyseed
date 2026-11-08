@@ -67,7 +67,7 @@ export interface Proposal<T extends Terms = Terms> {
 	expiresIn?: number;
 	/** Accept only the User's own approval of this revision, not a standing permission. */
 	userApprovalRequired?: boolean;
-	/** A page on your site that shows this operation. */
+	/** A page on your site that shows this operation. `{id}` becomes the operation ID. */
 	url?: string;
 }
 

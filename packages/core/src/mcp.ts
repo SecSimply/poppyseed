@@ -63,7 +63,7 @@ async function callTool(rpc: RpcRequest, tools: Tools, auth: Guarded): Promise<R
 		case "operation": {
 			// Extension 4.2: the operation in structuredContent, its summary as text.
 			const op = result.operation;
-			const summary = op.state === "proposed" ? `Proposed: ${op.summary} Not done until confirmed at the operations endpoint.` : `Operation ${op.state}: ${op.summary}`;
+			const summary = op.state === "proposed" ? `Proposed: ${op.summary} Not done until confirmed at the operations endpoint.${op.url ? ` The customer can see it at ${op.url}.` : ""}` : `Operation ${op.state}: ${op.summary}`;
 			return rpcResult(rpc.id, { content: text(summary), structuredContent: { operation: op } });
 		}
 		case "output": {

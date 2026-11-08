@@ -124,7 +124,7 @@ const create = () =>
 				run: (_input, ctx) => ({ payees: payeesOf(ctx.account.id).map((p) => ({ payee_id: p.id, name: p.name, ending: p.endingDigits })) }),
 			}),
 			pay_payee: tool({
-				description: `Pay a saved payee from one of your accounts. Payments over ${zar(OWN_APPROVAL_OVER_CENTS.payee)} need the customer's own approval. Returns an operation to confirm.`,
+				description: `Pay a saved payee from one of your accounts. Payments over ${zar(OWN_APPROVAL_OVER_CENTS.payee)} need the customer's own approval. Nothing is paid until it is confirmed: the customer can approve it on the page in its url, or their personal agent confirms it with their approval.`,
 				scope: "payments:write",
 				input: z.object({ payee_id: z.string().describe("A payee_id from list_payees"), from_account_id: z.string().describe("An account_id from list_accounts"), amount: amountField, reference: referenceField }),
 				operation: {
@@ -142,7 +142,7 @@ const create = () =>
 							summary: `Pay ${zar(cents)} to ${payee.name} (account ending ${payee.endingDigits}) from ${from.name} ••${from.endingDigits}${reference ? `, reference "${reference}"` : ""}. The money leaves today and can't be recalled.${own ? " This payment is over the limit for a standing permission, so you must approve it yourself." : ""}`,
 							terms: { payee_id: payee.id, from_account_id: from.id, amount: money(cents), ...(reference ? { reference } : {}) },
 							userApprovalRequired: own,
-							url: `${baseUrl}/payments`,
+							url: `${baseUrl}/payments/approve/{id}`,
 							expiresIn: 15 * 60,
 						};
 					},
@@ -158,7 +158,7 @@ const create = () =>
 				},
 			}),
 			transfer_between_accounts: tool({
-				description: `Move money between two of your own accounts. Transfers over ${zar(OWN_APPROVAL_OVER_CENTS.transfer)} need the customer's own approval. Returns an operation to confirm.`,
+				description: `Move money between two of your own accounts. Transfers over ${zar(OWN_APPROVAL_OVER_CENTS.transfer)} need the customer's own approval. Nothing moves until it is confirmed: the customer can approve it on the page in its url, or their personal agent confirms it with their approval.`,
 				scope: "payments:write",
 				input: z.object({ from_account_id: z.string(), to_account_id: z.string(), amount: amountField, reference: referenceField }),
 				operation: {
@@ -176,7 +176,7 @@ const create = () =>
 							summary: `Move ${zar(cents)} from ${from.name} ••${from.endingDigits} to ${to.name} ••${to.endingDigits}${reference ? `, reference "${reference}"` : ""}.${own ? " This transfer is over the limit for a standing permission, so you must approve it yourself." : ""}`,
 							terms: { from_account_id: from.id, to_account_id: to.id, amount: money(cents), ...(reference ? { reference } : {}) },
 							userApprovalRequired: own,
-							url: `${baseUrl}/payments`,
+							url: `${baseUrl}/payments/approve/{id}`,
 							expiresIn: 15 * 60,
 						};
 					},

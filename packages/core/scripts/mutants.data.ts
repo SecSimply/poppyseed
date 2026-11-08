@@ -207,6 +207,11 @@ export const UNIT_MUTANTS: UnitMutant[] = [
 	{ name: "private addresses connect", file: "packages/core/src/safe-fetch.ts", find: "addresses.some(({ address }) => isPrivateHost(address))", replace: "false", test: "packages/core/test/safe-fetch.test.ts", caughtBy: "safeFetch > refuses a hostname that resolves to loopback" },
 	{ name: "one address when Node asks for all", file: "packages/core/src/safe-fetch.ts", find: "if (options.all) return callback(null, addresses);", replace: "", test: "packages/core/test/safe-fetch.test.ts", caughtBy: "safeFetch > connects to a public address on Node 20+" },
 
+	// Approval on the Company's website.
+	{ name: "operation page keeps {id}", file: "packages/core/src/operations.ts", find: 'url?.replace("{id}", id);', replace: "url;", test: "packages/core/test/operations-approve.test.ts", caughtBy: "puts the operation ID in the page's address" },
+	{ name: "any account may approve", file: "packages/core/src/operations.ts", find: "return op?.owner.account?.id === accountId ? op : undefined;", replace: "return op;", test: "packages/core/test/operations-approve.test.ts", caughtBy: "lets only the owning account approve, for the latest revision" },
+	{ name: "approval can run twice", file: "packages/core/src/operations.ts", find: 'current.state === "proposed" && current.revision === revision && current.expiresAt > Date.now()', replace: "current.revision === revision && current.expiresAt > Date.now()", test: "packages/core/test/operations-approve.test.ts", caughtBy: "performs once however often it is approved" },
+
 	// MCP tool annotations.
 	{ name: "every tool reads as read-only", file: "packages/core/src/tools.ts", find: "tool.operation || !tool.readOnly ?", replace: "false ?", test: "packages/core/test/tool-annotations.test.ts", caughtBy: "marks only tools that declare themselves read-only, and never an operation" },
 
