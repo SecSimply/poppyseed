@@ -23,6 +23,8 @@ export interface TestAgentOptions {
 	allowInsecure?: boolean;
 	/** Extensions to advertise in client metadata, e.g. { operations: { version: "1" } }. */
 	extensions?: Record<string, unknown>;
+	/** The pairwise user id to use at every company, such as one saved from an earlier run. Defaults to a random one per company. */
+	userId?: string;
 }
 
 /** The company an agent discovered, with the endpoints it offers. */
@@ -401,6 +403,7 @@ export class TestAgent {
 
 	/** This agent's pairwise user id at the company. */
 	get userId(): string {
+		if (this.options.userId) return this.options.userId;
 		const issuer = this.company.metadata.issuer;
 		const id = this.userIds.get(issuer) ?? `usr_${randomJti()}`;
 		this.userIds.set(issuer, id);
