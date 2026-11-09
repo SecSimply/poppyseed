@@ -32,6 +32,8 @@ export async function sessionFor(user: OidcUser, links: Links, env: Env = proces
 		if (mapped && customerById(mapped)) await links.link(who, mapped, "CUSTOMER_EMAILS");
 		else await links.notePending(who);
 	}
-	const verifiedEmail = user.emailVerified === false ? undefined : user.email?.toLowerCase();
+	// TEMPORARY: STAFF_TRUST_UNVERIFIED=1 lets an unverified email be staff, because Curity does not set email_verified yet. Anyone who can register a Curity login with a staff address would get the console and may link logins to customers. Delete the variable once Curity verifies emails.
+	const trustUnverified = env.STAFF_TRUST_UNVERIFIED === "1";
+	const verifiedEmail = user.emailVerified === false && !trustUnverified ? undefined : user.email?.toLowerCase();
 	return { ...who, staff: verifiedEmail !== undefined && parseEmails(env.STAFF_EMAILS).has(verifiedEmail) };
 }

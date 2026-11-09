@@ -57,4 +57,12 @@ describe("who a Curity user is", () => {
 		expect((await sessionFor({ sub: "x", email: "sam@bank.example", emailVerified: false }, links, env)).staff).toBe(false);
 		expect((await sessionFor({ sub: "x", email: "sam@bank.example", emailVerified: true }, links, env)).staff).toBe(true);
 	});
+
+	it("makes an unverified email staff only when STAFF_TRUST_UNVERIFIED is 1", async () => {
+		const links = memoryLinks();
+		const unverified = { sub: "x", email: "sam@bank.example", emailVerified: false };
+		expect((await sessionFor(unverified, links, { ...env, STAFF_TRUST_UNVERIFIED: "1" })).staff).toBe(true);
+		expect((await sessionFor(unverified, links, { ...env, STAFF_TRUST_UNVERIFIED: "0" })).staff).toBe(false);
+		expect((await sessionFor({ ...unverified, email: "thandi@example.com" }, links, { ...env, STAFF_TRUST_UNVERIFIED: "1" })).staff).toBe(false);
+	});
 });
