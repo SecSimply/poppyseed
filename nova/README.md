@@ -37,7 +37,7 @@ Customers and staff sign in with Curity (OpenID Connect, authorization code with
 
 **The Curity client** is `protea-bank`: code flow, PKCE S256, a secret, scopes `openid profile email`, with these redirect addresses registered (checked against Curity: both are accepted):
 
-- `https://nova-bank-production-bd33.up.railway.app/auth/callback`
+- `https://app.proteabank.co.za/auth/callback`
 - `http://localhost:3000/auth/callback`, for `pnpm dev`
 
 Its details live in one file, `nova/proteabankoidc.md`, which holds the secret and is git-ignored. Two scripts use it so the secret is never typed or printed:

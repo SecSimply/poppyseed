@@ -5,7 +5,7 @@ About 15 minutes. It shows five things a personal agent and a company can do wit
 **You need**
 
 - The Inspector, signed in with Curity: `https://poppyseed-inspector-production.up.railway.app`
-- Protea Bank: `https://nova-bank-production-bd33.up.railway.app`
+- Protea Bank: `https://app.proteabank.co.za`
 - A second browser window (a private window, so it doesn't share cookies) signed in to Protea Bank as the customer: open the site, choose **Account**, and sign in with the Curity user that is mapped to Thandi. This is the person.
 - The staff console, in a third window of its own: open the site, choose **Staff**, and sign in with a Curity user listed in `STAFF_EMAILS`. If Curity is down, the emergency key still works: `/staff?key=…`, the `POPPY_STAFF_KEY` variable on the `nova-bank` Railway service.
 - The Inspector's settings for this demo, set once: `SIGNIN_SCOPES=accounts:read transactions:read payments:write`, `BROWSE_PATHS=/account /payments /payees /staff`, `STANDING_PERMISSION=1`, and two `OPERATIONS` presets (a small payment and a large one). The README lists them.
