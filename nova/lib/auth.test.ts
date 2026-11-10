@@ -1,13 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { parseCustomerEmails, parseEmails, sessionFor } from "./auth.ts";
+import { parseEmails, sessionFor } from "./auth.ts";
 import { memoryLinks } from "./links.ts";
 
-const env = { CUSTOMER_EMAILS: "Thandi@Example.com=cus_thandi, pieter@example.com=cus_pieter nobody@example.com=cus_unknown", STAFF_EMAILS: "Sam@Bank.example" };
+const env = { STAFF_EMAILS: "Sam@Bank.example" };
 
 describe("who a Curity user is", () => {
-	it("reads email=customer pairs, ignoring case in the email", () => {
-		expect([...parseCustomerEmails(env.CUSTOMER_EMAILS)]).toEqual([["thandi@example.com", "cus_thandi"], ["pieter@example.com", "cus_pieter"], ["nobody@example.com", "cus_unknown"]]);
-		expect([...parseCustomerEmails(undefined)]).toEqual([]);
+	it("reads a list of emails, ignoring case", () => {
 		expect([...parseEmails(" A@b.com, c@D.com ")]).toEqual(["a@b.com", "c@d.com"]);
 	});
 
@@ -25,24 +23,6 @@ describe("who a Curity user is", () => {
 		expect(await links.pending()).toMatchObject([{ sub: "s2", email: "stranger@example.com" }]);
 		await sessionFor({ sub: "s3" }, links, env);
 		expect((await links.pending()).map((p) => p.sub)).toEqual(["s3", "s2"]);
-	});
-
-	it("imports a login listed in CUSTOMER_EMAILS once, as a link on its sub (temporary)", async () => {
-		const links = memoryLinks();
-		await sessionFor({ sub: "s4", email: "THANDI@example.com" }, links, env);
-		expect(await links.customerFor("s4")).toBe("cus_thandi");
-		expect(await links.linked()).toMatchObject([{ sub: "s4", linkedBy: "CUSTOMER_EMAILS" }]);
-		expect(await links.pending()).toEqual([]);
-		// The variable no longer matters once the link exists, and a later change to it does not move it.
-		await sessionFor({ sub: "s4", email: "THANDI@example.com" }, links, { CUSTOMER_EMAILS: "thandi@example.com=cus_pieter" });
-		expect(await links.customerFor("s4")).toBe("cus_thandi");
-	});
-
-	it("does not import a customer that does not exist", async () => {
-		const links = memoryLinks();
-		await sessionFor({ sub: "s5", email: "nobody@example.com" }, links, env);
-		expect(await links.customerFor("s5")).toBeUndefined();
-		expect((await links.pending()).map((p) => p.sub)).toEqual(["s5"]);
 	});
 
 	it("makes staff only the people on STAFF_EMAILS, and nobody when it is not set", async () => {

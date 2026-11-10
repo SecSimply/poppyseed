@@ -7,7 +7,7 @@ import { sessionFrom } from "./session";
 /** What the person or agent looking at a page may see. Reading balances and reading transactions are separate scopes. */
 export type Viewer =
 	| { via: "nobody" }
-	/** Signed in to the site, but not as anyone with accounts: a Curity login that CUSTOMER_EMAILS does not map to a customer. */
+	/** Signed in to the site, but not as anyone with accounts: a Curity login that no one has linked to a customer. */
 	| { via: "visitor"; label: string; emailUnverified?: true }
 	/** A customer signed in to the site in their own browser: they see everything of theirs. */
 	| { via: "site"; customer: Customer }

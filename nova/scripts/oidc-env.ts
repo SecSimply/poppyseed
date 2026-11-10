@@ -18,7 +18,7 @@ const settings = parseOidcFile(readFileSync(file, "utf8"));
 if (mode === "--local") {
 	const target = new URL("../.env.development.local", import.meta.url);
 	writeFileSync(target, Object.entries(forLocal(settings)).map(([k, v]) => `${k}=${v}`).join("\n") + "\n", { mode: 0o600 });
-	console.log("wrote nova/.env.development.local: Curity sign-in for `pnpm dev` on http://localhost:3000 (add CUSTOMER_EMAILS and STAFF_EMAILS to it as needed)");
+	console.log("wrote nova/.env.development.local: Curity sign-in for `pnpm dev` on http://localhost:3000 (add STAFF_EMAILS to it as needed; link a login to a customer in /staff)");
 } else if (mode === "--railway") {
 	// The redirect address is the deployed site's, so the file's own value is used as it is.
 	const args = Object.entries(settings).flatMap(([k, v]) => ["--set", `${k}=${v}`]);

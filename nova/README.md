@@ -27,7 +27,7 @@ With `web: {}` an agent's browser can join its Session (`/poppy/browser-session`
 Customers and staff sign in with Curity (OpenID Connect, authorization code with PKCE, a confidential client). The flow is the `oidc-login` package, which the Inspector uses too. The server holds the tokens only for the moment it exchanges the code: what the browser keeps is a sealed session cookie (`__Host-pb_session` on https), with the person's id, email and name, and nothing it could use at Curity.
 
 - **Menu:** **Account** signs in a customer; **Staff** signs in staff, asking Curity for a fresh sign-in each time.
-- **Who a Curity user is:** a login is linked to a customer by its Curity `sub`, in Postgres. A login with no link signs in and sees **no accounts**, and waits in `/staff` under *Customer logins*. Staff either link it to an existing customer, or press **Create customer and link**, which opens a new customer with an everyday account and a saver of sandbox money (R15 000 and R5 000) and links the login to it. `CUSTOMER_EMAILS` is only a one-time import of the first two links.
+- **Who a Curity user is:** a login is linked to a customer by its Curity `sub`, in Postgres. A login with no link signs in and sees **no accounts**, and waits in `/staff` under *Customer logins*. Staff either link it to an existing customer, or press **Create customer and link**, which opens a new customer with an everyday account and a saver of sandbox money (R15 000 and R5 000) and links the login to it.
 - **Email must be verified.** A login whose email Curity marks `email_verified: false` identifies nobody here: it maps to no customer and is never staff. Curity users are made by hand, so a login that carries no such claim is trusted. If Curity ever allows self-registration, make it send the claim.
 - **Staff:** `STAFF_EMAILS` lists the emails that may use the console, kept by hand. Empty, nobody signs in as staff. A customer's login never opens the console.
 - **The emergency key:** `POPPY_STAFF_KEY` still opens `/staff?key=…` when Curity is down or no one is listed yet. The console says when someone came in that way.
@@ -47,7 +47,7 @@ Its details live in one file, `nova/proteabankoidc.md`, which holds the secret a
 
 `OIDC_REDIRECT_URI` is checked, not trusted: the site finishes sign-ins at `<its address>/auth/callback`, so a registered address that says anything else stops the site at start-up with a message that names both.
 
-**Other variables:** `CUSTOMER_EMAILS`, `STAFF_EMAILS`, and the existing `POPPYSEED_BASE_URL`, `POPPYSEED_SECRET` and `POPPY_STAFF_KEY`.
+**Other variables:** `STAFF_EMAILS`, and the existing `POPPYSEED_BASE_URL`, `POPPYSEED_SECRET` and `POPPY_STAFF_KEY`.
 
 `scripts/login-local.ts` proves all of it against a stand-in provider (the Inspector's `scripts/mock-oidc.ts`): a stranger, a customer, a login that is not a customer, a staff member, and an attacker who forges a cookie, replays a callback, signs someone out from another site, or tries an open redirect.
 
@@ -73,7 +73,7 @@ What the skips mean, in short: Mediated Sign-In is off on purpose; any agent may
 
 This is a demonstration, and some of it is deliberately not a real bank's:
 
-- **The demonstration login exists only on a local http site.** Deployed (https), there is no way in but Curity, and a deployed site refuses to start without it. Any Curity user can sign in; what they see is decided by `CUSTOMER_EMAILS` and `STAFF_EMAILS`, which are edited by hand.
+- **The demonstration login exists only on a local http site.** Deployed (https), there is no way in but Curity, and a deployed site refuses to start without it. Any Curity user can sign in; what they see is decided by the customer link staff make in `/staff`, and `STAFF_EMAILS`, which is edited by hand.
 - **The emergency staff key travels in the address and in each form.** `/staff?key=…` is checked in constant time, in the page and again in every action, but the key can end up in browser history. It exists for when Curity is down; staff use the Staff menu.
 - **The test hooks sign anyone in.** They exist only behind `POPPYSEED_TEST_HOOKS=1`. Never set it on a service with real customers.
 - **Everything the site writes is escaped** (React's defaults; nothing uses `dangerouslySetInnerHTML`). Reports from agents, payee names and client ids are shown as text.

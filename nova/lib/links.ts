@@ -1,5 +1,5 @@
 /**
- * Which Curity login is which customer. A link is made by staff (or imported once from CUSTOMER_EMAILS) and is keyed
+ * Which Curity login is which customer. A link is made by staff and is keyed
  * by the login's `sub`, which the provider never reuses, not by an email anyone could claim. A login that signs in
  * with no link is noted as pending, so staff can see it and link it. In Postgres when DATABASE_URL is set, in memory
  * otherwise (local development and tests).
@@ -13,7 +13,7 @@ export interface Who {
 }
 export interface Link extends Who {
 	customerId: string;
-	/** Who made the link: a staff member's name, or "CUSTOMER_EMAILS" for one imported from the variable. */
+	/** Who made the link: a staff member's name. */
 	linkedBy: string;
 	linkedAt: string;
 }
