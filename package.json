@@ -28,6 +28,7 @@
   "pnpm": {
     "overrides": {
       "fast-uri": ">=3.1.9",
+      "jsdom": "^26.1.0",
       "zod": "^4.6.6"
     }
   }
