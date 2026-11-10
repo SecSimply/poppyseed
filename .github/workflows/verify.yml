@@ -5,6 +5,11 @@ on:
     branches: ["**"] # tags go through release.yml, which calls this workflow
   pull_request:
   workflow_call:
+    inputs:
+      published-only:
+        description: "Ask for a unit mutant only from the published package's tests (the release uses this; every mutant still has to be caught)"
+        type: boolean
+        default: false
 
 concurrency:
   group: verify-${{ github.ref }}
@@ -69,7 +74,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm mutants
+      - run: pnpm mutants ${{ inputs.published-only && '--published' || '' }}
 
   quickstart:
     name: docs/quickstart.md works as written on Next.js ${{ matrix.next }}, from npm packages

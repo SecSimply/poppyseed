@@ -41,7 +41,7 @@ Node 22, pnpm 10. `pnpm install` once, then:
 
 ## Gates
 
-`pnpm verify` runs the spec gate, typecheck, unit tests and in-process conformance. The pre-push hook and CI run it as well. CI also runs `pnpm e2e` (the fixture app's production build over HTTP, every check through Next.js), `pnpm mutants` (each check must catch a deliberately broken rule; `--full` runs the whole suite per mutant) and `pnpm quickstart` (packs the package as npm would publish it and runs `docs/quickstart.md`, as written, in a fresh Next.js app).
+`pnpm verify` runs the spec gate, typecheck, unit tests and in-process conformance. The pre-push hook and CI run it as well. CI also runs `pnpm e2e` (the fixture app's production build over HTTP, every check through Next.js), `pnpm mutants` (each check must catch a deliberately broken rule; `--full` runs the whole suite per mutant). The release workflow runs `pnpm mutants --published`: every mutant must still be caught, but only the tests of `packages/core` (the published package) must be named by one and `pnpm quickstart` (packs the package as npm would publish it and runs `docs/quickstart.md`, as written, in a fresh Next.js app).
 
 `spec:check` fails when any of these is true:
 - a company rule has neither a check nor a planned leg;

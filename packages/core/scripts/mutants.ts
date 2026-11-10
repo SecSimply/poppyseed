@@ -5,7 +5,10 @@
  * reason, or the mutant no longer matches the code. Every unit test must be
  * named by a unit mutant, so none is tautological.
  * By default only the named check runs per mutant; --full runs the whole
- * suite and lists every check that caught it.
+ * suite and lists every check that caught it. --published asks for a unit
+ * mutant only from the tests of the published package (packages/core): every
+ * mutant still runs and must be caught. The release workflow uses it, because
+ * nova, inspector and oidc-login are not published; verify.yml asks for all.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -20,7 +23,8 @@ const coreSrc = join(here, "../src");
 // The suite runs in-process against the reference company, from its own package.
 const reference = join(root, "fixtures/reference");
 const full = process.argv.includes("--full");
-const only = process.argv.slice(2).filter((arg) => arg !== "--full");
+const published = process.argv.includes("--published");
+const only = process.argv.slice(2).filter((arg) => arg !== "--full" && arg !== "--published");
 
 // Mutants edit sources in place. Start from a clean tree so a restore can never clobber real work.
 const mutable = [coreSrc];
@@ -129,8 +133,9 @@ for (const mutant of unitSelected) {
 
 // No tautological unit tests: each must be named by a mutant, or say why it can't be.
 if (only.length === 0) {
-	const files = [...new Set(UNIT_MUTANTS.map((m) => m.test))];
-	const listed = execFileSync("git", ["ls-files", "*.test.ts"], { cwd: root, encoding: "utf8" }).split("\n").filter((f) => f && f !== "fixtures/reference/test/conformance.test.ts");
+	const asked = (file: string) => !published || file.startsWith("packages/core/");
+	const files = [...new Set(UNIT_MUTANTS.map((m) => m.test))].filter(asked);
+	const listed = execFileSync("git", ["ls-files", "*.test.ts"], { cwd: root, encoding: "utf8" }).split("\n").filter((f) => f && f !== "fixtures/reference/test/conformance.test.ts" && asked(f));
 	for (const file of listed.filter((f) => !files.includes(f))) {
 		survived++;
 		console.error(`✗ ${file} has no unit mutant. Add one to UNIT_MUTANTS for each of its tests.`);

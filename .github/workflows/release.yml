@@ -16,6 +16,8 @@ on:
 jobs:
   gates:
     uses: ./.github/workflows/verify.yml
+    with:
+      published-only: true
 
   publish:
     needs: gates
