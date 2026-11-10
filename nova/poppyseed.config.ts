@@ -76,6 +76,26 @@ const create = () =>
 		fetch: (input, init) => (allowLoopback ? fetch(input, init) : safeFetch(input, init)),
 
 		tools: {
+			who_am_i: tool({
+				readOnly: true,
+				description: "The Protea Bank customer this connection is signed in as: their name and email address. Use it to tell the person who is signed in.",
+				scope: "accounts:read",
+				input: z.object({}),
+				run: async (_input, ctx) => {
+					const customer = await (await bank()).customer(ctx.account.id);
+					if (!customer) throw new ToolError("This connection is not signed in as a Protea Bank customer.");
+					return { name: customer.name, email: customer.email };
+				},
+			}),
+			end_all_sign_ins: tool({
+				description: "Ends every sign-in this agent has at Protea Bank for this customer, on every device, so the bank's connected-apps list no longer shows it. Only this agent's own sign-ins are ended; the customer can sign in again at any time.",
+				scope: "accounts:read",
+				input: z.object({}),
+				run: async (_input, ctx) => {
+					await poppyseed.connections.disconnect(ctx.account.id, ctx.clientId);
+					return { ended: true };
+				},
+			}),
 			list_accounts: tool({
 				readOnly: true,
 				description: "Your Protea Bank accounts with their balances. Shows only the last four digits of each account number.",
