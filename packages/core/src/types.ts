@@ -67,6 +67,12 @@ export interface Proposal<T extends Terms = Terms> {
 	expiresIn?: number;
 	/** Accept only the User's own approval of this revision, not a standing permission. */
 	userApprovalRequired?: boolean;
+	/**
+	 * Only the User's approval on your own website or app counts (`operations.approve`): a Personal Agent's confirmation is
+	 * refused, even as `approved_by: "user"`. Use it when the approval must come from something the agent cannot claim,
+	 * such as a signature from the User's phone. Implies `userApprovalRequired`.
+	 */
+	approvalOnSite?: boolean;
 	/** A page on your site that shows this operation. `{id}` becomes the operation ID. */
 	url?: string;
 }

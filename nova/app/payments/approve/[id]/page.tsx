@@ -1,7 +1,10 @@
 import { revalidatePath } from "next/cache";
 import { poppyseed } from "../../../../poppyseed.config";
+import { devices } from "../../../../lib/devices";
+import { approveFromWebsite } from "../../../../lib/web-approval";
 import { viewer } from "../../../../lib/viewer";
 import { AgentBanner, NoCustomer } from "../../../agent-banner";
+import { Refresh } from "./refresh";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Approve a payment" };
@@ -24,12 +27,14 @@ export default async function Approve({ params }: { params: Promise<{ id: string
 		);
 	}
 	const op = await poppyseed.operations.get(id, who.customer.id);
+	const phone = await (await devices()).hasActive(who.customer.id);
 	async function approve(form: FormData) {
 		"use server";
 		const now = await viewer();
 		// Only the customer's own browser, checked again: an action can be called without the page.
 		if (now.via !== "site") return revalidatePath(`/payments/approve/${id}`);
-		await poppyseed.operations.approve(id, now.customer.id, Number(form.get("revision"))).catch(() => undefined);
+		// A customer with a phone approves there: this page, which a stolen browser session would reach, no longer can.
+		await approveFromWebsite(now.customer.id, await devices(), () => poppyseed.operations.approve(id, now.customer.id, Number(form.get("revision")))).catch(() => undefined);
 		revalidatePath(`/payments/approve/${id}`);
 	}
 	return (
@@ -44,7 +49,14 @@ export default async function Approve({ params }: { params: Promise<{ id: string
 				<section className="card" aria-labelledby="what">
 					<h2 id="what">{op.state === "proposed" ? "Your personal agent is asking to:" : "Your personal agent asked to:"}</h2>
 					<p>{op.summary}</p>
-					{op.state === "proposed" && (
+					{op.state === "proposed" && phone && (
+						<>
+							<p role="status">Approve this in the Protea app on your phone, with your fingerprint. This page updates when you do.</p>
+							<p className="muted">It lapses on its own at {op.expires_at ? new Date(op.expires_at).toLocaleTimeString("en-ZA") : "its expiry"}.</p>
+							<Refresh />
+						</>
+					)}
+					{op.state === "proposed" && !phone && (
 						<form action={approve}>
 							<input type="hidden" name="revision" value={op.revision} />
 							<button type="submit">Approve</button>

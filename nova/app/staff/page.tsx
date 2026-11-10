@@ -5,12 +5,13 @@ import { poppyseed } from "../../poppyseed.config";
 import { entries, record } from "../../lib/audit";
 import { block, blocked, unblock } from "../../lib/blocklist";
 import { bank } from "../../lib/bank";
+import { devices } from "../../lib/devices";
 import { customerById } from "../../lib/customers";
 import { reports } from "../../lib/feedback";
 import { links } from "../../lib/links";
 import { oidc } from "../../lib/oidc";
 import { sessionFrom } from "../../lib/session";
-import { mayLink, staffAccess } from "../../lib/staff";
+import { mayLink, removeDeviceAs, staffAccess } from "../../lib/staff";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Support", robots: { index: false } };
@@ -56,7 +57,7 @@ export default async function Staff({ searchParams }: { searchParams: Promise<{ 
 		);
 	}
 	const queue = await poppyseed.conversations.queue();
-	const [pendingLogins, linkedLogins, customers] = await Promise.all([(await links()).pending(), (await links()).linked(), (await bank()).customers()]);
+	const [pendingLogins, linkedLogins, customers, phones] = await Promise.all([(await links()).pending(), (await links()).linked(), (await bank()).customers(), (await devices()).all()]);
 	const open = id ? await poppyseed.conversations.get(id) : undefined;
 	// The key travels in forms and links only when it is how this person got in.
 	const keyField = who.by === "key" && typeof key === "string" ? key : "";
@@ -127,6 +128,14 @@ export default async function Staff({ searchParams }: { searchParams: Promise<{ 
 				record(me, `opened ${made.customer.id} for ${waiting.email} and linked the login`);
 			}
 		}
+		revalidatePath("/staff");
+	}
+	async function removePhone(form: FormData) {
+		"use server";
+		const me = await actor(form);
+		const id = String(form.get("device_id") ?? "");
+		const phone = (await (await devices()).all()).find((d) => d.id === id);
+		if (await removeDeviceAs(me, await devices(), id)) record(me, `removed the phone ${phone?.name ?? id} of ${phone?.customerId ?? "a customer"}`);
 		revalidatePath("/staff");
 	}
 	async function unlinkLogin(form: FormData) {
@@ -236,6 +245,21 @@ export default async function Staff({ searchParams }: { searchParams: Promise<{ 
 							<input type="hidden" name="key" value={keyField} />
 							<strong>{l.email ?? "no email"}</strong> <span className="muted">is {customers.find((c) => c.id === l.customerId)?.name ?? l.customerId} · linked by {l.linkedBy}</span>{" "}
 							{mayLink(who) && <button type="submit" className="secondary">Unlink</button>}
+						</form>
+					))}
+				</div>
+			</section>
+			<section aria-labelledby="phones">
+				<h2 id="phones">Customers' phones</h2>
+				<p className="muted">A customer's phone approves every payment their agents ask for. Remove one only when the customer has lost it or asked for a new one: they can then add another. Removing needs a staff sign-in with Curity; the emergency key can only look.</p>
+				<div className="card scroll">
+					{phones.length === 0 && <p className="muted">No customer has a phone.</p>}
+					{phones.map((d) => (
+						<form action={removePhone} key={d.id}>
+							<input type="hidden" name="device_id" value={d.id} />
+							<input type="hidden" name="key" value={keyField} />
+							<strong>{customers.find((c) => c.id === d.customerId)?.name ?? d.customerId}</strong> <span className="muted">{d.name} · {d.status === "active" ? "active" : "waiting for the customer to confirm"}{d.lastSeenAt ? ` · last seen ${d.lastSeenAt.slice(0, 16).replace("T", " ")}` : ""}</span>{" "}
+							{mayLink(who) && <button type="submit" className="secondary">Remove</button>}
 						</form>
 					))}
 				</div>

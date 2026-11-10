@@ -127,3 +127,13 @@ The demo customer Thandi Nkosi has the saved payees `pye_thandi_rent`, `pye_than
 - **Another customer's account looks like no account.** Asking for it returns the same "No account" answer as an id that does not exist.
 - **A demonstration sign-in.** The site's own login asks you to pick one of two fictional customers, with no password. Anyone who reaches the deployed site can pick either. That is acceptable only because the data is fictional.
 - **Customers are in Postgres, Poppy's state is not.** Connected agents, operations and conversations are in memory, one instance, and a restart ends them.
+
+## The Protea app: approving agent payments on a phone
+
+A customer can enroll a phone (Account → Add my phone, then scan the QR code in the app). Once one is enrolled, **every** payment or transfer an agent asks for waits for that phone: the app shows it, the customer confirms with a fingerprint, and the phone signs the approval. The agent's own confirmation is refused, even when it claims the customer's approval, and the bank's approval page no longer approves for that customer. The wire format is in [AUTHENTICATOR.md](AUTHENTICATOR.md); `scripts/fake-phone.ts` is a phone on the command line.
+
+- A customer has one device. Replacing it is a staff action: `/staff` → *Customers' phones* (Curity staff sign-in; the emergency key can only look).
+- Enrolling needs the customer's signed-in browser, and the customer comparing a code on the phone and the website. It does not ask for a new Curity sign-in.
+- A proposal made before a phone was enrolled stays an ordinary proposal until it lapses (15 minutes).
+- Postgres is required when deployed, as for customers and accounts: the tables `nova_devices`, `nova_device_enrollments`, `nova_device_nonces` and `nova_approvals` are created on first use.
+

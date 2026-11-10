@@ -3,6 +3,8 @@ import { after } from "next/server";
 import { z } from "zod";
 import { bank, money, needsOwnApproval, OWN_APPROVAL_OVER_CENTS, parseAmount, recordPerformed, zar } from "./lib/bank.ts";
 import { siteCustomer } from "./lib/customers.ts";
+import { approvalPolicy } from "./lib/approval-policy.ts";
+import { devices } from "./lib/devices.ts";
 import { baseUrl, isDev, secret } from "./lib/env.ts";
 import { proteaAgent } from "./lib/support.ts";
 import { BRANCHES, CITIES, RATES } from "./lib/products.ts";
@@ -159,11 +161,13 @@ const create = () =>
 						if (!from) throw new ToolError(`No account ${from_account_id}. list_accounts lists yours.`);
 						if ((await b.balanceCents(from)) < cents) throw new ToolError(`There is not enough money in ${from.name} ••${from.endingDigits} for ${zar(cents)}.`);
 						const own = needsOwnApproval("payee", cents);
+						const approval = approvalPolicy(own, await (await devices()).hasActive(ctx.account.id), "payment");
 						return {
 							key: `pay:${from.id}:${payee.id}`,
-							summary: `Pay ${zar(cents)} to ${payee.name} (account ending ${payee.endingDigits}) from ${from.name} ••${from.endingDigits}${reference ? `, reference "${reference}"` : ""}. The money leaves today and can't be recalled.${own ? " This payment is over the limit for a standing permission, so you must approve it yourself." : ""}`,
+							summary: `Pay ${zar(cents)} to ${payee.name} (account ending ${payee.endingDigits}) from ${from.name} ••${from.endingDigits}${reference ? `, reference "${reference}"` : ""}. The money leaves today and can't be recalled.${approval.note}`,
 							terms: { payee_id: payee.id, from_account_id: from.id, amount: money(cents), ...(reference ? { reference } : {}) },
-							userApprovalRequired: own,
+							userApprovalRequired: approval.userApprovalRequired,
+							approvalOnSite: approval.approvalOnSite,
 							url: `${baseUrl}/payments/approve/{id}`,
 							expiresIn: 15 * 60,
 						};
@@ -195,11 +199,13 @@ const create = () =>
 						if (from.id === to.id) throw new ToolError("Choose two different accounts.");
 						if ((await b.balanceCents(from)) < cents) throw new ToolError(`There is not enough money in ${from.name} ••${from.endingDigits} for ${zar(cents)}.`);
 						const own = needsOwnApproval("transfer", cents);
+						const approval = approvalPolicy(own, await (await devices()).hasActive(ctx.account.id), "transfer");
 						return {
 							key: `xfer:${from.id}:${to.id}`,
-							summary: `Move ${zar(cents)} from ${from.name} ••${from.endingDigits} to ${to.name} ••${to.endingDigits}${reference ? `, reference "${reference}"` : ""}.${own ? " This transfer is over the limit for a standing permission, so you must approve it yourself." : ""}`,
+							summary: `Move ${zar(cents)} from ${from.name} ••${from.endingDigits} to ${to.name} ••${to.endingDigits}${reference ? `, reference "${reference}"` : ""}.${approval.note}`,
 							terms: { from_account_id: from.id, to_account_id: to.id, amount: money(cents), ...(reference ? { reference } : {}) },
-							userApprovalRequired: own,
+							userApprovalRequired: approval.userApprovalRequired,
+							approvalOnSite: approval.approvalOnSite,
 							url: `${baseUrl}/payments/approve/{id}`,
 							expiresIn: 15 * 60,
 						};

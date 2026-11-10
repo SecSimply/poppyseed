@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import type { Devices } from "./devices.ts";
 import { sessionFrom } from "./session.ts";
 
 /** The staff key from the environment: the way in when Curity is down, or no one is on STAFF_EMAILS yet. In production there is no default: without it, only a staff session gets in. */
@@ -22,6 +23,13 @@ export interface StaffAccess {
 
 /** Whether this staff access may link or unlink a login. A link opens a customer's accounts, so it takes a Curity staff sign-in: the emergency key, which could leak, does not. */
 export const mayLink = (access: StaffAccess): boolean => access.by === "session";
+
+/** Removes a customer's phone for a staff member signed in with Curity, who is then sure the customer asked: a lost or replaced phone. The emergency key cannot, and nothing else removes an active device. */
+export async function removeDeviceAs(access: StaffAccess, devices: Pick<Devices, "all" | "remove">, deviceId: string): Promise<boolean> {
+	if (!mayLink(access)) return false;
+	const device = (await devices.all()).find((d) => d.id === deviceId);
+	return device ? devices.remove(device.customerId, device.id) : false;
+}
 
 /**
  * Whether this request may use the console. A signed-in staff member may, by session. Otherwise the emergency key

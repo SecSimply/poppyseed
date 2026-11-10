@@ -9,7 +9,7 @@ import { mcpEndpoint } from "./mcp.ts";
 import { mediatedEndpoint } from "./mediated.ts";
 import { deviceAuthorizationEndpoint, revokeEndpoint, tokenEndpoint } from "./oauth.ts";
 import { openApiDocument, toolCallEndpoint } from "./openapi.ts";
-import { agentSupportsOperations, Operations, operationJson, operationsEndpoint, type OperationResult, type OperationView } from "./operations.ts";
+import { agentSupportsOperations, hostJson, Operations, operationJson, operationsEndpoint, type HostOperationView, type OperationResult, type OperationView } from "./operations.ts";
 import { PATHS, ROUTES } from "./paths.js";
 import { withUsage } from "./ratelimit.ts";
 import { key, revokeAccountToken, type Connection } from "./records.ts";
@@ -58,14 +58,18 @@ export interface Poppyseed<C extends PoppyseedConfig = PoppyseedConfig> {
 	/** Operations your tools proposed (operations extension). */
 	operations: {
 		/** An operation by ID. With `accountId`, only if it belongs to that account: use it for pages a customer sees. */
-		get(operationId: string, accountId?: string): Promise<OperationView | undefined>;
+		get(operationId: string, accountId?: string): Promise<HostOperationView | undefined>;
 		/** Confirms an operation from your website, for the browser's Session. It is the same operation, so it can't run twice. */
 		confirm(operationId: string, session: SessionContext, revision: number): Promise<OperationView>;
 		/**
 		 * Approves an operation for the account holder signed in to your website, such as from the page its `url` names.
 		 * Check who they are first; it throws operation_not_found unless the operation belongs to `accountId`.
 		 */
-		approve(operationId: string, accountId: string, revision: number): Promise<OperationView>;
+		approve(operationId: string, accountId: string, revision: number): Promise<HostOperationView>;
+		/** The account's proposals that are still open, newest first, for an approval screen on your own app. */
+		pending(accountId: string): Promise<HostOperationView[]>;
+		/** Turns an open proposal down for the account holder. Throws operation_not_found unless the operation belongs to `accountId`; one already decided is returned as it is. */
+		decline(operationId: string, accountId: string): Promise<HostOperationView>;
 		/** Records the outcome of an operation still in progress, for when `perform` couldn't tell whether it took effect. Final operations never change. */
 		settle(operationId: string, state: "succeeded" | "failed" | "cancelled", result: OperationResult): Promise<void>;
 	};
@@ -202,7 +206,7 @@ export function definePoppyseed<C extends PoppyseedConfig>(input: C): Poppyseed<
 		operations: {
 			async get(operationId, accountId) {
 				const op = await (accountId === undefined ? operations.read(operationId) : operations.ownedBy(operationId, accountId));
-				return op && operationJson(op);
+				return op && hostJson(op);
 			},
 			async confirm(operationId, session, revision) {
 				const { op, settled } = await operations.confirm(operationId, guardedFrom(session), { revision, approved_by: "user" });
@@ -212,7 +216,13 @@ export function definePoppyseed<C extends PoppyseedConfig>(input: C): Poppyseed<
 			async approve(operationId, accountId, revision) {
 				const { op, settled } = await operations.approve(operationId, accountId, revision);
 				config.waitUntil?.(settled);
-				return operationJson(op);
+				return hostJson(op);
+			},
+			async pending(accountId) {
+				return (await operations.pending(accountId)).map(hostJson);
+			},
+			async decline(operationId, accountId) {
+				return hostJson(await operations.decline(operationId, accountId));
 			},
 			async settle(operationId, state, result) {
 				await operations.settle(operationId, state, result);

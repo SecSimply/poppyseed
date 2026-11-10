@@ -14,6 +14,8 @@ import { json, randomId } from "./util.ts";
 
 export const OPERATION_STATES = ["proposed", "in_progress", "succeeded", "failed", "cancelled", "expired"] as const;
 export type OperationState = (typeof OPERATION_STATES)[number];
+const MAX_TRACKED = 50; // open proposals remembered per account
+const accountKey = (accountId: string) => `operations-of:${accountId}`;
 const RETAIN_MS = 365 * 86_400_000; // readable for a year; the extension requires it until final
 
 export interface OperationResult {
@@ -46,6 +48,8 @@ export type OperationRecord = {
 	summary: string;
 	terms: Record<string, unknown>;
 	userApprovalRequired: boolean;
+	/** Only approval on the Company's own site or app counts: the Personal Agent's confirmation is refused. */
+	approvalOnSite?: boolean;
 	url?: string;
 } & (
 	| { state: "proposed"; expiresAt: number; confirmation: null; result: null }
@@ -68,6 +72,11 @@ export interface OperationView {
 	confirmation: Confirmation | null;
 	result: OperationResult | null;
 }
+
+/** An operation as your own site or app sees it: the extension's view, and which Personal Agent proposed it. */
+export type HostOperationView = OperationView & { client_id: string };
+
+export const hostJson = (op: OperationRecord): HostOperationView => ({ ...operationJson(op), client_id: op.owner.clientId });
 
 export function operationJson(op: OperationRecord): OperationView {
 	return {
@@ -114,12 +123,14 @@ export class Operations {
 		const proposal = await tool.operation.propose(input, ctx);
 		const owner = { sessionId: ctx.sessionId, clientId: ctx.clientId, userId: ctx.userId, account: ctx.account };
 		const expiresAt = Date.now() + (proposal.expiresIn ?? 15 * 60) * 1000;
-		const terms = { summary: proposal.summary, terms: proposal.terms, userApprovalRequired: proposal.userApprovalRequired ?? false, url: proposal.url, expiresAt };
+		const approvalOnSite = proposal.approvalOnSite === true;
+		const userApprovalRequired = approvalOnSite || (proposal.userApprovalRequired ?? false);
+		const terms = { summary: proposal.summary, terms: proposal.terms, userApprovalRequired, approvalOnSite, url: proposal.url, expiresAt };
 		const fresh = (): OperationRecord => {
 			const id = randomId("op");
 			return { id, tool: name, key: proposal.key, owner, scope: tool.scope, revision: 1, state: "proposed", confirmation: null, result: null, ...terms, url: withId(terms.url, id) };
 		};
-		if (proposal.key === undefined) return this.save(fresh());
+		if (proposal.key === undefined) return this.track(await this.save(fresh()));
 
 		// The same action in the same Session (or account) is one operation, whichever channel proposes it.
 		const indexKey = `operation-key:${owner.account ? `acct:${owner.clientId}:${owner.userId}:${owner.account.id}` : `ses:${owner.sessionId}`}:${name}:${proposal.key}`;
@@ -132,11 +143,11 @@ export class Operations {
 				const won = existingId
 					? (await this.store.update<string>(indexKey, (current) => (current === existingId ? op.id : undefined))) === op.id
 					: await this.store.add(indexKey, op.id, { expiresAt: Date.now() + RETAIN_MS });
-				if (won) return op;
+				if (won) return this.track(op);
 				continue;
 			}
 			if (existing.state !== "proposed") return existing;
-			const same = canonical([existing.summary, existing.terms, existing.userApprovalRequired]) === canonical([proposal.summary, proposal.terms, proposal.userApprovalRequired ?? false]);
+			const same = canonical([existing.summary, existing.terms, existing.userApprovalRequired, existing.approvalOnSite ?? false]) === canonical([proposal.summary, proposal.terms, userApprovalRequired, approvalOnSite]);
 			if (same) return existing;
 			// New terms: the next revision of the same operation. Earlier revisions are never edited (extension 3.1).
 			const revised = await this.transition(existing.id, (current) =>
@@ -190,10 +201,40 @@ export class Operations {
 		if (revision !== op.revision) {
 			throw new PoppyError(409, "terms_changed", `revision ${op.revision} is the latest`, { body: { operation: operationJson(op) } });
 		}
+		if (op.approvalOnSite) {
+			throw new PoppyError(403, "user_approval_required", "this operation can only be approved by the User on the Company's own website or app", { body: { operation: operationJson(op) } });
+		}
 		if (op.userApprovalRequired && approved_by !== "user") {
 			throw new PoppyError(403, "user_approval_required", "this operation needs the User's own approval of this revision", { body: { operation: operationJson(op) } });
 		}
 		return this.claim(op, revision, approved_by, auth.ctx);
+	}
+
+	/** Remembers a new operation under its account, so the account's open proposals can be listed. */
+	private async track(op: OperationRecord): Promise<OperationRecord> {
+		const accountId = op.owner.account?.id;
+		if (accountId) {
+			await this.store.update<string[]>(accountKey(accountId), (ids = []) => [op.id, ...ids.filter((id) => id !== op.id)].slice(0, MAX_TRACKED), { expiresAt: Date.now() + RETAIN_MS });
+		}
+		return op;
+	}
+
+	/** The account's proposals still open, newest first. */
+	async pending(accountId: string): Promise<OperationRecord[]> {
+		const open: OperationRecord[] = [];
+		for (const id of (await this.store.get<string[]>(accountKey(accountId))) ?? []) {
+			const op = await this.ownedBy(id, accountId);
+			if (op?.state === "proposed") open.push(op);
+		}
+		return open;
+	}
+
+	/** The account holder turns an open proposal down, from the Company's own site or app. Anything past `proposed` is left as it is. */
+	async decline(id: string, accountId: string): Promise<OperationRecord> {
+		const op = await this.ownedBy(id, accountId);
+		if (!op) throw new PoppyError(404, "operation_not_found", "no such operation for this account");
+		const declined = await this.cancelProposal(id, "Declined by the account holder. Nothing was done.");
+		return declined ?? (await this.read(id)) ?? op;
 	}
 
 	/** An operation proposed signed in to this account, or undefined. */
@@ -234,14 +275,17 @@ export class Operations {
 	async cancel(id: string, ctx: SessionContext): Promise<OperationRecord> {
 		const op = await this.owned(id, ctx);
 		if (op.state === "proposed") {
-			const cancelled = await this.transition(id, (current) =>
-				current.state === "proposed" ? { ...current, state: "cancelled", result: { summary: "Cancelled before it was confirmed. Nothing was done." } } : undefined,
-			);
+			const cancelled = await this.cancelProposal(id, "Cancelled before it was confirmed. Nothing was done.");
 			return cancelled ?? this.owned(id, ctx);
 		}
 		if (op.state !== "in_progress") return op;
 		const stopped = await this.toolOf(op)?.operation.cancel?.({ id: op.id, terms: op.terms, summary: op.summary }, ctx);
 		return (stopped && (await this.settle(id, "cancelled", stopped))) || op;
+	}
+
+	/** Moves an open proposal to cancelled, once. Resolves to the new record only if this call changed it. */
+	private cancelProposal(id: string, summary: string): Promise<OperationRecord | undefined> {
+		return this.transition(id, (current) => (current.state === "proposed" ? { ...current, state: "cancelled", result: { summary } } : undefined));
 	}
 
 	/**
