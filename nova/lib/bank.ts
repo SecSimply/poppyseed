@@ -112,7 +112,7 @@ export const MAX_PAYEES = 20;
  * Up to these amounts an agent may act on a standing permission. Above them the customer must approve each payment
  * themselves, and the bank refuses a confirmation that claims a standing permission.
  */
-export const OWN_APPROVAL_OVER_CENTS = { payee: 500_000, transfer: 5_000_000 } as const;
+export const OWN_APPROVAL_OVER_CENTS = { payee: 50_000, transfer: 500_000 } as const;
 
 /** A decimal amount such as "96.40" as whole cents, or undefined for anything else (no sign, at most two decimals). */
 export function parseAmount(text: string): number | undefined {

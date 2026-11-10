@@ -106,7 +106,7 @@ Payments need `payments:write` too, and the Inspector's operation steps need to 
 
 ```
 SIGNIN_SCOPES=accounts:read payments:write
-OPERATIONS=[{"label":"Pay Boland Power R1 735,00","tool":"pay_payee","arguments":{"payee_id":"pye_thandi_energy","from_account_id":"acc_thandi_everyday","amount":"1735.00","reference":"October"}},
+OPERATIONS=[{"label":"Pay Boland Power R350,00","tool":"pay_payee","arguments":{"payee_id":"pye_thandi_energy","from_account_id":"acc_thandi_everyday","amount":"350.00","reference":"October"}},
             {"label":"Pay Dwarsrivier Rentals R14 500,00 (needs your approval)","tool":"pay_payee","arguments":{"payee_id":"pye_thandi_rent","from_account_id":"acc_thandi_everyday","amount":"14500.00","reference":"November rent"}}]
 STANDING_PERMISSION=1
 ```
@@ -119,7 +119,7 @@ The demo customer Thandi Nkosi has the saved payees `pye_thandi_rent`, `pye_than
 - **The support agent is scripted.** It reads and explains: rates and branches for anyone, balances and recent transactions once the customer has signed in, using the caller's own scopes. Asked for balances without a sign-in, it asks for the `accounts:read` scope and shows nothing. It never moves money in a chat: a payment is an operation the customer approves, and a chat message is never an approval. Asking for a person hands the conversation to staff. Switching it to Claude is a configuration change (an Anthropic API key).
 - **Staff take handoffs at `/staff?key=…`.** The key is the `POPPY_STAFF_KEY` environment variable. Without it the page does not exist in production. Staff can take a conversation, reply as "Protea Bank support", and hand it back.
 - **One Poppyseed instance and one set of bank data per process.** In a production build a page and an API route can be bundled separately, each with its own copy of a module. Without a single shared instance, a conversation started through the API was missing from the staff page, and a payment made through the API was missing from the payments page.
-- **Two kinds of payment, by size.** A payment to a saved payee up to R5 000,00, or a transfer between the customer's own accounts up to R50 000,00, may be confirmed by an agent under a standing permission. Above those limits the operation sets `user_approval_required`, and the bank refuses a confirmation that claims a standing permission. Only one the person approved (`approved_by: user`) is accepted.
+- **Two kinds of payment, by size.** A payment to a saved payee up to R500,00, or a transfer between the customer's own accounts up to R5 000,00, may be confirmed by an agent under a standing permission. Above those limits the operation sets `user_approval_required`, and the bank refuses a confirmation that claims a standing permission. Only one the person approved (`approved_by: user`) is accepted.
 - **Proposing a payment reveals whether the account can cover it.** A token with only `payments:write` could therefore learn roughly what an account holds by proposing different amounts, without `accounts:read`. The scope's description says so, so the customer sees it when granting the scope. Nothing moves until a proposal is confirmed.
 - **An agent can only pay saved payees.** There is no tool to add one. Adding a payee is a task the bank will not offer to agents (phase 6).
 - **A payment moves money once.** The operation id is the idempotency key, and the funds are checked again when the payment is performed, since the balance may have changed since it was proposed.

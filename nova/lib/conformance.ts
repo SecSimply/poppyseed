@@ -41,7 +41,7 @@ export const profile = {
 	operations: {
 		// Small enough for an agent to confirm under a standing permission; the revision differs in the amount.
 		action: { name: "pay_payee", arguments: pay("10.00"), revisedArguments: pay("11.00"), scope: "payments:write" },
-		// Over R5 000: the bank requires the person's own approval.
+		// Over R500: the bank requires the person's own approval.
 		approvalAction: { name: "pay_payee", arguments: pay("6000.00"), scope: "payments:write" },
 	},
 	conversations: { hello: "What are your savings rates?", accountRequest: "What are my balances?" },

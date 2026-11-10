@@ -28,9 +28,9 @@ Say at the start: *"The Inspector is a personal agent that shows its working. Ev
 
 ## 2. A person approves what matters (human in the loop)
 
-1. Run with sign-in again and choose **Pay Boland Power R1 735,00** in the operation picker.
+1. Run with sign-in again and choose **Pay Boland Power R350,00** in the operation picker.
 2. Approve the sign-in. The payment is proposed, and because the customer set a standing permission for small payments, it goes through. Open **The person decides**: *"within your standing permission"*, then *"Paid R1 735,00 to Boland Power"*.
-3. Run again with **Pay Dwarsrivier Rentals R14 500,00 (needs your approval)**. An **Approve this yourself** panel appears. *"Over R5 000 the bank refuses a standing permission. The agent can't approve it for the customer."*
+3. Run again with **Pay Dwarsrivier Rentals R14 500,00 (needs your approval)**. An **Approve this yourself** panel appears. *"Over R500 the bank refuses a standing permission. The agent can't approve it for the customer."*
 4. Click **Decline** once to show nothing moves. Run again and **Approve** to show the payment going through, as the customer, not the agent.
 5. In the customer's window, open **Payments**: both payments are there.
 

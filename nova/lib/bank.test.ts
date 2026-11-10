@@ -262,9 +262,9 @@ describe("amounts", () => {
 	});
 
 	it("asks for the customer's own approval strictly above the limit", () => {
-		expect(needsOwnApproval("payee", 500_000)).toBe(false);
-		expect(needsOwnApproval("payee", 500_001)).toBe(true);
-		expect(needsOwnApproval("transfer", 5_000_000)).toBe(false);
-		expect(needsOwnApproval("transfer", 5_000_001)).toBe(true);
+		expect(needsOwnApproval("payee", 50_000)).toBe(false);
+		expect(needsOwnApproval("payee", 50_001)).toBe(true);
+		expect(needsOwnApproval("transfer", 500_000)).toBe(false);
+		expect(needsOwnApproval("transfer", 500_001)).toBe(true);
 	});
 });
