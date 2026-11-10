@@ -4,6 +4,8 @@
  * with no link is noted as pending, so staff can see it and link it. In Postgres when DATABASE_URL is set, in memory
  * otherwise (local development and tests).
  */
+import { database, type SqlClient } from "./db.ts";
+
 export interface Who {
 	sub: string;
 	email?: string;
@@ -59,11 +61,6 @@ export function memoryLinks(): Links {
 			return [...pending.values()].reverse();
 		},
 	};
-}
-
-/** Anything that runs a parameterized SQL query: a `pg` Pool, or PGlite. */
-export interface SqlClient {
-	query(text: string, params?: unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
 }
 
 export function postgresLinks(db: SqlClient): Links {
@@ -125,10 +122,8 @@ declare global {
  */
 export async function links(env: Record<string, string | undefined> = process.env): Promise<Links> {
 	if (globalThis.__proteaLinks) return globalThis.__proteaLinks;
-	if (env.DATABASE_URL) {
-		const { default: pg } = await import("pg");
-		return (globalThis.__proteaLinks = postgresLinks(new pg.Pool({ connectionString: env.DATABASE_URL, max: 3, ...(env.DATABASE_SSL === "1" ? { ssl: { rejectUnauthorized: false } } : {}) })));
-	}
+	const db = await database(env);
+	if (db) return (globalThis.__proteaLinks = postgresLinks(db));
 	if (env.NODE_ENV === "production") throw new Error("DATABASE_URL is not set: Protea Bank cannot tell which login is which customer");
 	return (globalThis.__proteaLinks = memoryLinks());
 }

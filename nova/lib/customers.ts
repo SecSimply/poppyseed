@@ -1,26 +1,16 @@
+import { bank, type Customer } from "./bank.ts";
 import { secure } from "./env.ts";
 import { links } from "./links.ts";
 import { sessionFrom, type Session } from "./session.ts";
 
 /**
- * Protea Bank's customers: two fictional people, with accounts. Who is signed in comes from the sealed session cookie
- * (see session.ts), set after a sign-in at Curity, or by the demonstration login on a local http site. A curity user
- * is one of these customers when CUSTOMER_EMAILS says so (see auth.ts).
+ * Who is signed in comes from the sealed session cookie (see session.ts), set after a sign-in at Curity, or by the
+ * demonstration login on a local http site. A Curity login is a customer when the link table says so (see links.ts);
+ * the customers themselves are in the bank (see bank.ts).
  */
-export interface Customer {
-	id: string;
-	name: string;
-	email: string;
-}
+export type { Customer };
 
-export const CUSTOMERS: Customer[] = [
-	{ id: "cus_thandi", name: "Thandi Nkosi", email: "thandi@proteabank.example" },
-	{ id: "cus_pieter", name: "Pieter van Wyk", email: "pieter@proteabank.example" },
-];
-
-export function customerById(id: string | undefined): Customer | undefined {
-	return CUSTOMERS.find((c) => c.id === id);
-}
+export const customerById = async (id: string | undefined): Promise<Customer | undefined> => (await bank()).customer(id);
 
 /**
  * The customer a signed-in session is. A session that names its customer (the local demonstration login, the

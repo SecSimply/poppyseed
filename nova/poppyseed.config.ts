@@ -1,7 +1,7 @@
 import { definePoppyseed, memoryStore, OperationFailed, safeFetch, tool, ToolError } from "poppyseed";
 import { after } from "next/server";
 import { z } from "zod";
-import { accountOf, accountsOf, balanceCents, money, movePayment, needsOwnApproval, OWN_APPROVAL_OVER_CENTS, parseAmount, payeeOf, payeesOf, recordPerformed, transactionsOf, zar } from "./lib/bank.ts";
+import { bank, money, needsOwnApproval, OWN_APPROVAL_OVER_CENTS, parseAmount, recordPerformed, zar } from "./lib/bank.ts";
 import { siteCustomer } from "./lib/customers.ts";
 import { baseUrl, isDev, secret } from "./lib/env.ts";
 import { proteaAgent } from "./lib/support.ts";
@@ -81,13 +81,13 @@ const create = () =>
 				description: "Your Protea Bank accounts with their balances. Shows only the last four digits of each account number.",
 				scope: "accounts:read",
 				input: z.object({}),
-				run: (_input, ctx) => ({
-					accounts: accountsOf(ctx.account.id).map((a) => ({
+				run: async (_input, ctx) => ({
+					accounts: (await (await bank()).balancesOf(ctx.account.id)).map((a) => ({
 						account_id: a.id,
 						name: a.name,
 						type: a.type,
 						ending: a.endingDigits,
-						balance: money(balanceCents(a)),
+						balance: money(a.balanceCents),
 					})),
 				}),
 			}),
@@ -101,12 +101,13 @@ const create = () =>
 					to: z.iso.date().optional().describe("Latest date, YYYY-MM-DD"),
 					limit: z.number().int().min(1).max(100).optional().describe("How many to return. Default 20"),
 				}),
-				run: ({ account_id, from, to, limit }, ctx) => {
-					const account = accountOf(ctx.account.id, account_id);
+				run: async ({ account_id, from, to, limit }, ctx) => {
+					const b = await bank();
+					const account = await b.accountOf(ctx.account.id, account_id);
 					if (!account) throw new ToolError(`No account ${account_id}. list_accounts lists yours.`);
 					return {
 						account_id,
-						transactions: transactionsOf(account, { from, to, limit }).map((t) => ({
+						transactions: (await b.transactionsOf(account, { from, to, limit })).map((t) => ({
 							transaction_id: t.id,
 							date: t.date,
 							description: t.description,
@@ -121,21 +122,22 @@ const create = () =>
 				description: "Your saved payees, the only people and companies a payment can go to. It can't add a payee.",
 				scope: "payments:write",
 				input: z.object({}),
-				run: (_input, ctx) => ({ payees: payeesOf(ctx.account.id).map((p) => ({ payee_id: p.id, name: p.name, ending: p.endingDigits })) }),
+				run: async (_input, ctx) => ({ payees: (await (await bank()).payeesOf(ctx.account.id)).map((p) => ({ payee_id: p.id, name: p.name, ending: p.endingDigits })) }),
 			}),
 			pay_payee: tool({
 				description: `Pay a saved payee from one of your accounts. Payments over ${zar(OWN_APPROVAL_OVER_CENTS.payee)} need the customer's own approval. Nothing is paid until it is confirmed: the customer can approve it on the page in its url, or their personal agent confirms it with their approval.`,
 				scope: "payments:write",
 				input: z.object({ payee_id: z.string().describe("A payee_id from list_payees"), from_account_id: z.string().describe("An account_id from list_accounts"), amount: amountField, reference: referenceField }),
 				operation: {
-					propose: ({ payee_id, from_account_id, amount, reference }, ctx) => {
+					propose: async ({ payee_id, from_account_id, amount, reference }, ctx) => {
+						const b = await bank();
 						const cents = parseAmount(amount);
 						if (!cents) throw new ToolError(`"${amount}" is not an amount. Use rand and cents such as "1735.00".`);
-						const payee = payeeOf(ctx.account.id, payee_id);
+						const payee = await b.payeeOf(ctx.account.id, payee_id);
 						if (!payee) throw new ToolError(`No saved payee ${payee_id}. list_payees lists yours. A payee can only be added by the customer, not by an agent.`);
-						const from = accountOf(ctx.account.id, from_account_id);
+						const from = await b.accountOf(ctx.account.id, from_account_id);
 						if (!from) throw new ToolError(`No account ${from_account_id}. list_accounts lists yours.`);
-						if (balanceCents(from) < cents) throw new ToolError(`There is not enough money in ${from.name} ••${from.endingDigits} for ${zar(cents)}.`);
+						if ((await b.balanceCents(from)) < cents) throw new ToolError(`There is not enough money in ${from.name} ••${from.endingDigits} for ${zar(cents)}.`);
 						const own = needsOwnApproval("payee", cents);
 						return {
 							key: `pay:${from.id}:${payee.id}`,
@@ -146,12 +148,13 @@ const create = () =>
 							expiresIn: 15 * 60,
 						};
 					},
-					perform: ({ id, terms }, ctx) => {
+					perform: async ({ id, terms }, ctx) => {
 						recordPerformed(id, terms);
-						const payee = payeeOf(ctx.account.id, terms.payee_id);
+						const b = await bank();
+						const payee = await b.payeeOf(ctx.account.id, terms.payee_id);
 						const cents = parseAmount(terms.amount.amount);
 						if (!payee || !cents) throw new OperationFailed("The payee is no longer available. Nothing was paid.");
-						const moved = movePayment(id, ctx.account.id, { from: terms.from_account_id, description: `${payee.name}${terms.reference ? ` · ${terms.reference}` : ""}`, category: "payment", cents });
+						const moved = await b.movePayment(id, ctx.account.id, { from: terms.from_account_id, description: `${payee.name}${terms.reference ? ` · ${terms.reference}` : ""}`, category: "payment", cents });
 						if (!moved.ok) throw new OperationFailed(moved.reason);
 						return { summary: `Paid ${zar(cents)} to ${payee.name}. Reference ${moved.reference}.`, data: { reference: moved.reference } };
 					},
@@ -162,14 +165,15 @@ const create = () =>
 				scope: "payments:write",
 				input: z.object({ from_account_id: z.string(), to_account_id: z.string(), amount: amountField, reference: referenceField }),
 				operation: {
-					propose: ({ from_account_id, to_account_id, amount, reference }, ctx) => {
+					propose: async ({ from_account_id, to_account_id, amount, reference }, ctx) => {
+						const b = await bank();
 						const cents = parseAmount(amount);
 						if (!cents) throw new ToolError(`"${amount}" is not an amount. Use rand and cents such as "5000.00".`);
-						const from = accountOf(ctx.account.id, from_account_id);
-						const to = accountOf(ctx.account.id, to_account_id);
+						const from = await b.accountOf(ctx.account.id, from_account_id);
+						const to = await b.accountOf(ctx.account.id, to_account_id);
 						if (!from || !to) throw new ToolError("Both accounts must be yours. list_accounts lists them.");
 						if (from.id === to.id) throw new ToolError("Choose two different accounts.");
-						if (balanceCents(from) < cents) throw new ToolError(`There is not enough money in ${from.name} ••${from.endingDigits} for ${zar(cents)}.`);
+						if ((await b.balanceCents(from)) < cents) throw new ToolError(`There is not enough money in ${from.name} ••${from.endingDigits} for ${zar(cents)}.`);
 						const own = needsOwnApproval("transfer", cents);
 						return {
 							key: `xfer:${from.id}:${to.id}`,
@@ -180,12 +184,13 @@ const create = () =>
 							expiresIn: 15 * 60,
 						};
 					},
-					perform: ({ id, terms }, ctx) => {
+					perform: async ({ id, terms }, ctx) => {
 						recordPerformed(id, terms);
+						const b = await bank();
 						const cents = parseAmount(terms.amount.amount);
-						const to = accountOf(ctx.account.id, terms.to_account_id);
+						const to = await b.accountOf(ctx.account.id, terms.to_account_id);
 						if (!cents || !to) throw new OperationFailed("An account is no longer available. Nothing was moved.");
-						const moved = movePayment(id, ctx.account.id, { from: terms.from_account_id, to: to.id, description: `Transfer to ${to.name} ••${to.endingDigits}${terms.reference ? ` · ${terms.reference}` : ""}`, category: "transfer", cents });
+						const moved = await b.movePayment(id, ctx.account.id, { from: terms.from_account_id, to: to.id, description: `Transfer to ${to.name} ••${to.endingDigits}${terms.reference ? ` · ${terms.reference}` : ""}`, category: "transfer", cents });
 						if (!moved.ok) throw new OperationFailed(moved.reason);
 						return { summary: `Moved ${zar(cents)}. Reference ${moved.reference}.`, data: { reference: moved.reference } };
 					},

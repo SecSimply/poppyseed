@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { poppyseed } from "../../poppyseed.config";
-import { accountsOf, balanceCents, zar } from "../../lib/bank";
+import { bank, zar } from "../../lib/bank";
 import { siteCustomer } from "../../lib/customers";
 import { sessionFrom } from "../../lib/session";
 import { customerOf, mayRead, viewer } from "../../lib/viewer";
@@ -23,6 +23,7 @@ export default async function Account() {
 			</main>
 		);
 	}
+	const accounts = mayRead(who, "accounts:read") ? await (await bank()).balancesOf(customer.id) : [];
 	// Connected agents and sign-out belong to the customer in their own browser; an agent's browser sees neither.
 	const connections = who.via === "site" ? await poppyseed.connections.list(customer.id) : [];
 	async function disconnect(form: FormData) {
@@ -46,11 +47,11 @@ export default async function Account() {
 							<tr><th>Account</th><th>Type</th><th className="r">Balance</th></tr>
 						</thead>
 						<tbody>
-							{accountsOf(customer.id).map((a) => (
+							{accounts.map((a) => (
 								<tr key={a.id}>
 									<td><strong>{a.name}</strong> <span className="muted num">••{a.endingDigits}</span></td>
 									<td>{a.type}</td>
-									<td className="r num">{zar(balanceCents(a))}</td>
+									<td className="r num">{zar(a.balanceCents)}</td>
 								</tr>
 							))}
 						</tbody>

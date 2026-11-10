@@ -1,5 +1,5 @@
 import { poppyseed } from "../../../poppyseed.config";
-import { accountsOf, balanceCents, zar } from "../../../lib/bank";
+import { bank, zar } from "../../../lib/bank";
 import { customerOf, mayRead, viewerOf } from "../../../lib/viewer";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +16,6 @@ export async function GET(request: Request): Promise<Response> {
 	if (who.via === "nobody" || who.via === "visitor") return new Response("Sign in to Protea Bank to see your accounts.", { status: 401, headers });
 	if (!mayRead(who, "accounts:read")) return new Response("This page needs the accounts:read scope. Ask the customer to approve a sign-in with it.", { status: 403, headers });
 	const customer = customerOf(who)!;
-	const lines = accountsOf(customer.id).map((a) => `${a.name} ••${a.endingDigits}: ${zar(balanceCents(a))}`);
+	const lines = (await (await bank()).balancesOf(customer.id)).map((a) => `${a.name} ••${a.endingDigits}: ${zar(a.balanceCents)}`);
 	return new Response([`Accounts of ${customer.name}`, ...lines].join("\n"), { status: 200, headers });
 }

@@ -19,7 +19,7 @@ export type Viewer =
  * Session's, signed in or not, whatever login cookie the browser also holds.
  */
 export async function viewerOf(session: SessionContext | null, cookieHeader: string | null): Promise<Viewer> {
-	if (session) return { via: "agent", clientId: session.clientId, customer: customerById(session.account?.id), scopes: session.account?.scopes ?? [] };
+	if (session) return { via: "agent", clientId: session.clientId, customer: await customerById(session.account?.id), scopes: session.account?.scopes ?? [] };
 	const site = sessionFrom(cookieHeader);
 	const customer = await customerOfSession(site ?? undefined);
 	if (customer) return { via: "site", customer };

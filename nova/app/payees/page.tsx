@@ -1,6 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { addPayee, payeesOf } from "../../lib/bank";
+import { bank } from "../../lib/bank";
 import { customerOf, mayRead, viewer } from "../../lib/viewer";
 import { AgentBanner, NeedScope, NoCustomer } from "../agent-banner";
 
@@ -25,12 +25,13 @@ export default async function Payees({ searchParams }: { searchParams: Promise<{
 			</main>
 		);
 	}
+	const payees = mayRead(who, "payments:write") ? await (await bank()).payeesOf(customer.id) : [];
 	async function add(form: FormData) {
 		"use server";
 		const now = await viewer();
 		// Only the customer's own browser. An agent's Session, signed in or not, is refused.
 		if (now.via !== "site") return revalidatePath("/payees");
-		const result = addPayee(now.customer.id, String(form.get("name") ?? ""), String(form.get("account") ?? ""));
+		const result = await (await bank()).addPayee(now.customer.id, String(form.get("name") ?? ""), String(form.get("account") ?? ""));
 		redirect(result.ok ? `/payees?added=${encodeURIComponent(result.payee.name)}` : `/payees?error=${encodeURIComponent(result.reason)}`);
 	}
 	return (
@@ -52,7 +53,7 @@ export default async function Payees({ searchParams }: { searchParams: Promise<{
 								<tr><th>Payee</th><th>Account</th></tr>
 							</thead>
 							<tbody>
-								{payeesOf(customer.id).map((p) => (
+								{payees.map((p) => (
 									<tr key={p.id}><td><strong>{p.name}</strong></td><td className="num">••{p.endingDigits}</td></tr>
 								))}
 							</tbody>

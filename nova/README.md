@@ -27,7 +27,7 @@ With `web: {}` an agent's browser can join its Session (`/poppy/browser-session`
 Customers and staff sign in with Curity (OpenID Connect, authorization code with PKCE, a confidential client). The flow is the `oidc-login` package, which the Inspector uses too. The server holds the tokens only for the moment it exchanges the code: what the browser keeps is a sealed session cookie (`__Host-pb_session` on https), with the person's id, email and name, and nothing it could use at Curity.
 
 - **Menu:** **Account** signs in a customer; **Staff** signs in staff, asking Curity for a fresh sign-in each time.
-- **Who a Curity user is:** `CUSTOMER_EMAILS` maps a login's email to a customer, as `thandi@…=cus_thandi pieter@…=cus_pieter`. A login not on the list signs in and sees **no accounts**, with a message saying so. Nothing is created for it.
+- **Who a Curity user is:** a login is linked to a customer by its Curity `sub`, in Postgres. A login with no link signs in and sees **no accounts**, and waits in `/staff` under *Customer logins*. Staff either link it to an existing customer, or press **Create customer and link**, which opens a new customer with an everyday account and a saver of sandbox money (R15 000 and R5 000) and links the login to it. `CUSTOMER_EMAILS` is only a one-time import of the first two links.
 - **Email must be verified.** A login whose email Curity marks `email_verified: false` identifies nobody here: it maps to no customer and is never staff. Curity users are made by hand, so a login that carries no such claim is trusted. If Curity ever allows self-registration, make it send the claim.
 - **Staff:** `STAFF_EMAILS` lists the emails that may use the console, kept by hand. Empty, nobody signs in as staff. A customer's login never opens the console.
 - **The emergency key:** `POPPY_STAFF_KEY` still opens `/staff?key=…` when Curity is down or no one is listed yet. The console says when someone came in that way.
@@ -77,7 +77,7 @@ This is a demonstration, and some of it is deliberately not a real bank's:
 - **The emergency staff key travels in the address and in each form.** `/staff?key=…` is checked in constant time, in the page and again in every action, but the key can end up in browser history. It exists for when Curity is down; staff use the Staff menu.
 - **The test hooks sign anyone in.** They exist only behind `POPPYSEED_TEST_HOOKS=1`. Never set it on a service with real customers.
 - **Everything the site writes is escaped** (React's defaults; nothing uses `dangerouslySetInnerHTML`). Reports from agents, payee names and client ids are shown as text.
-- **State is in memory**, one process: payments, payees, the blocklist and reports reset when the service restarts.
+- **Customers, accounts, transactions and payees are in Postgres** (`DATABASE_URL`, required when deployed), created on first use and seeded with the two demonstration customers once. Without `DATABASE_URL` (local development, tests) they are in memory. The blocklist, reports and Poppy's own state are still in memory and reset on a restart.
 
 ## Run
 
@@ -126,4 +126,4 @@ The demo customer Thandi Nkosi has the saved payees `pye_thandi_rent`, `pye_than
 - **Balances and transactions are separate scopes.** `list_accounts` needs `accounts:read` and `list_transactions` needs `transactions:read`. A transaction never carries a balance, so a token can be given one view without the other.
 - **Another customer's account looks like no account.** Asking for it returns the same "No account" answer as an id that does not exist.
 - **A demonstration sign-in.** The site's own login asks you to pick one of two fictional customers, with no password. Anyone who reaches the deployed site can pick either. That is acceptable only because the data is fictional.
-- **State is in memory.** One instance, and a restart resets everything.
+- **Customers are in Postgres, Poppy's state is not.** Connected agents, operations and conversations are in memory, one instance, and a restart ends them.

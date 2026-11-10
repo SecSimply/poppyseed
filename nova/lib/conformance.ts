@@ -12,8 +12,8 @@ import { SESSION_COOKIE, sealSession } from "./session";
 const PEOPLE = { alice: "cus_thandi", bob: "cus_pieter" } as const;
 
 /** A Cookie header that signs a test person in to the site, as the sign-in at Curity would. */
-const cookieFor = (id: (typeof PEOPLE)[keyof typeof PEOPLE]): string => {
-	const customer = customerById(id)!;
+const cookieFor = async (id: (typeof PEOPLE)[keyof typeof PEOPLE]): Promise<string> => {
+	const customer = (await customerById(id))!;
 	return `${SESSION_COOKIE}=${sealSession({ sub: `test:${id}`, email: customer.email, name: customer.name, customerId: id, staff: false })}`;
 };
 
@@ -21,7 +21,7 @@ const staff = { id: "aut_support", name: "Protea Bank support" };
 
 export const hooks = {
 	endSession: (sessionId) => poppyseed.endSession(sessionId),
-	siteSignIn: async (person) => cookieFor(PEOPLE[person]),
+	siteSignIn: (person) => cookieFor(PEOPLE[person]),
 	connections: (person) => poppyseed.connections.list(PEOPLE[person]),
 	disconnect: (person, clientId) => poppyseed.connections.disconnect(PEOPLE[person], clientId),
 	staffJoin: (id) => poppyseed.conversations.join(id),

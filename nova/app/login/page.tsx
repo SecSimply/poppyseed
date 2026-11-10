@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { CUSTOMERS, customerById } from "../../lib/customers";
+import { bank } from "../../lib/bank";
+import { customerById } from "../../lib/customers";
 import { baseUrl, secure } from "../../lib/env";
 import { oidc } from "../../lib/oidc";
 import { safeReturn } from "../../lib/return-to";
@@ -26,7 +27,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
 		"use server";
 		// The demonstration login exists only where there is no Curity: it must never run on a deployed https site.
 		if (secure) throw new Error("not available");
-		const customer = customerById(String(form.get("customer")));
+		const customer = await customerById(String(form.get("customer")));
 		if (!customer) throw new Error("unknown customer");
 		(await cookies()).set(SESSION_COOKIE, sealSession({ sub: `demo:${customer.id}`, email: customer.email, name: customer.name, customerId: customer.id, staff: false }), { httpOnly: true, sameSite: "lax", path: "/", secure, maxAge: SESSION_HOURS.customer * 3600 });
 		redirect(safeReturn(String(form.get("return_to") ?? ""), baseUrl));
@@ -40,7 +41,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
 			</header>
 			<form action={signIn} className="card">
 				<input type="hidden" name="return_to" value={returnTo} />
-				{CUSTOMERS.map((c, i) => (
+				{(await (await bank()).customers()).map((c, i) => (
 					<label key={c.id} className="choice">
 						<input type="radio" name="customer" value={c.id} defaultChecked={i === 0} /> {c.name} <span className="muted">{c.email}</span>
 					</label>

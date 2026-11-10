@@ -84,13 +84,13 @@ const fb2 = await allowed.feedback(session.access_token, { kind: "missing", task
 expect(fb2.httpStatus === 202, `feedback about a task that is missing is accepted (HTTP ${fb2.httpStatus})`);
 
 console.log("\nthe website");
-const thandi = new Browser(fetcher, personCookie("cus_thandi"));
+const thandi = new Browser(fetcher, await personCookie("cus_thandi"));
 const own = await text(thandi, "/payees");
 expect(own.includes("Save payee"), "the customer's own browser can add a payee");
 
 // An agent's browser, signed in with the scope that reads payees, still gets no way to add one.
 const device = await allowed.deviceAuthorization("payments:write");
-const person = new Browser(fetcher, personCookie("cus_thandi"));
+const person = new Browser(fetcher, await personCookie("cus_thandi"));
 await person.decide(await person.enterUserCode(device.verification_uri, device.user_code), "approve");
 for (;;) {
 	try {
@@ -101,7 +101,7 @@ for (;;) {
 		else throw error;
 	}
 }
-const agentBrowser = new Browser(fetcher, personCookie("cus_thandi")); // it also holds the customer's login: the Session must win
+const agentBrowser = new Browser(fetcher, await personCookie("cus_thandi")); // it also holds the customer's login: the Session must win
 await allowed.joinBrowser(agentBrowser, session.session);
 const agentView = await text(agentBrowser, "/payees");
 expect(agentView.includes("Sipho Dlamini") && agentView.includes("isn't something Protea Bank offers") && !agentView.includes("Save payee"), "an agent's browser sees the payees but is given no way to add one");

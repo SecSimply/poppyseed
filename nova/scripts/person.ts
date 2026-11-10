@@ -12,10 +12,10 @@ const { customerById } = await import("../lib/customers.ts");
 const { SESSION_COOKIE, sealSession } = await import("../lib/session.ts");
 
 /** `name=value` for the Cookie header of a browser that has signed in as this customer. */
-export function personCookie(id = "cus_thandi"): string {
-	const customer = customerById(id);
+export async function personCookie(id = "cus_thandi"): Promise<string> {
+	const customer = await customerById(id);
 	if (!customer) throw new Error(`no customer ${id}`);
 	return `${SESSION_COOKIE}=${sealSession({ sub: `demo:${id}`, email: customer.email, name: customer.name, customerId: id, staff: false })}`;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) console.log(personCookie(process.argv[2]));
+if (import.meta.url === `file://${process.argv[1]}`) console.log(await personCookie(process.argv[2]));

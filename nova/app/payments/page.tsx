@@ -1,4 +1,4 @@
-import { accountsOf, TRANSACTIONS, zar } from "../../lib/bank";
+import { bank, zar } from "../../lib/bank";
 import { customerOf, mayRead, viewer } from "../../lib/viewer";
 import { AgentBanner, NeedScope, NoCustomer } from "../agent-banner";
 
@@ -19,10 +19,8 @@ export default async function Payments() {
 			</main>
 		);
 	}
-	const accounts = accountsOf(customer.id);
-	const rows = TRANSACTIONS.filter((t) => (t.category === "payment" || t.category === "transfer") && accounts.some((a) => a.id === t.accountId))
-		.sort((a, b) => (a.date === b.date ? b.id.localeCompare(a.id) : b.date.localeCompare(a.date)))
-		.slice(0, 30);
+	const accounts = await (await bank()).accountsOf(customer.id);
+	const rows = mayRead(who, "transactions:read") ? await (await bank()).paymentsOf(customer.id, 30) : [];
 	return (
 		<main>
 			<AgentBanner viewer={who} />

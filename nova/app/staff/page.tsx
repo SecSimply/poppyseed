@@ -4,7 +4,8 @@ import { notFound, redirect } from "next/navigation";
 import { poppyseed } from "../../poppyseed.config";
 import { entries, record } from "../../lib/audit";
 import { block, blocked, unblock } from "../../lib/blocklist";
-import { CUSTOMERS, customerById } from "../../lib/customers";
+import { bank } from "../../lib/bank";
+import { customerById } from "../../lib/customers";
 import { reports } from "../../lib/feedback";
 import { links } from "../../lib/links";
 import { oidc } from "../../lib/oidc";
@@ -55,7 +56,7 @@ export default async function Staff({ searchParams }: { searchParams: Promise<{ 
 		);
 	}
 	const queue = await poppyseed.conversations.queue();
-	const [pendingLogins, linkedLogins] = await Promise.all([(await links()).pending(), (await links()).linked()]);
+	const [pendingLogins, linkedLogins, customers] = await Promise.all([(await links()).pending(), (await links()).linked(), (await bank()).customers()]);
 	const open = id ? await poppyseed.conversations.get(id) : undefined;
 	// The key travels in forms and links only when it is how this person got in.
 	const keyField = who.by === "key" && typeof key === "string" ? key : "";
@@ -104,12 +105,27 @@ export default async function Staff({ searchParams }: { searchParams: Promise<{ 
 		const me = await linker(form);
 		const store = await links();
 		const sub = String(form.get("sub") ?? "");
-		const customer = customerById(String(form.get("customer") ?? ""));
+		const customer = await customerById(String(form.get("customer") ?? ""));
 		// Only a login that has signed in and is waiting, with the email and name it signed in with.
 		const waiting = (await store.pending()).find((p) => p.sub === sub);
 		if (waiting && customer) {
 			await store.link(waiting, customer.id, me.name);
 			record(me, `linked ${waiting.email ?? waiting.sub} to ${customer.id}`);
+		}
+		revalidatePath("/staff");
+	}
+	async function openCustomer(form: FormData) {
+		"use server";
+		const me = await linker(form);
+		const sub = String(form.get("sub") ?? "");
+		// Only a login that has signed in and is waiting. The customer takes the email it signed in with, and the name staff typed.
+		const waiting = (await (await links()).pending()).find((p) => p.sub === sub);
+		if (waiting?.email) {
+			const made = await (await bank()).createCustomer({ name: String(form.get("name") ?? ""), email: waiting.email });
+			if (made.ok) {
+				await (await links()).link(waiting, made.customer.id, me.name);
+				record(me, `opened ${made.customer.id} for ${waiting.email} and linked the login`);
+			}
 		}
 		revalidatePath("/staff");
 	}
@@ -187,20 +203,30 @@ export default async function Staff({ searchParams }: { searchParams: Promise<{ 
 					<h3>Waiting to be linked</h3>
 					{pendingLogins.length === 0 && <p className="muted">No login is waiting.</p>}
 					{pendingLogins.map((p) => (
-						<form action={linkLogin} key={p.sub}>
-							<input type="hidden" name="sub" value={p.sub} />
-							<input type="hidden" name="key" value={keyField} />
-							<strong>{p.email ?? "no email"}</strong> <span className="muted">{p.name ?? ""} · {p.seenAt.slice(0, 16).replace("T", " ")}</span>{" "}
-							{mayLink(who) && (
-								<>
-									<select name="customer" required defaultValue="">
-										<option value="" disabled>Customer…</option>
-										{CUSTOMERS.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-									</select>
-									<button type="submit">Link</button>
-								</>
+						<div key={p.sub}>
+							<form action={linkLogin}>
+								<input type="hidden" name="sub" value={p.sub} />
+								<input type="hidden" name="key" value={keyField} />
+								<strong>{p.email ?? "no email"}</strong> <span className="muted">{p.name ?? ""} · {p.seenAt.slice(0, 16).replace("T", " ")}</span>{" "}
+								{mayLink(who) && (
+									<>
+										<select name="customer" required defaultValue="">
+											<option value="" disabled>Customer…</option>
+											{customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+										</select>
+										<button type="submit">Link</button>
+									</>
+								)}
+							</form>
+							{mayLink(who) && p.email && (
+								<form action={openCustomer}>
+									<input type="hidden" name="sub" value={p.sub} />
+									<input type="hidden" name="key" value={keyField} />
+									<label className="muted">A new customer, named <input name="name" required minLength={2} maxLength={60} defaultValue={p.name ?? ""} autoComplete="off" /></label>{" "}
+									<button type="submit">Create customer and link</button>
+								</form>
 							)}
-						</form>
+						</div>
 					))}
 					<h3>Linked</h3>
 					{linkedLogins.length === 0 && <p className="muted">No login is linked.</p>}
@@ -208,7 +234,7 @@ export default async function Staff({ searchParams }: { searchParams: Promise<{ 
 						<form action={unlinkLogin} key={l.sub}>
 							<input type="hidden" name="sub" value={l.sub} />
 							<input type="hidden" name="key" value={keyField} />
-							<strong>{l.email ?? "no email"}</strong> <span className="muted">is {customerById(l.customerId)?.name ?? l.customerId} · linked by {l.linkedBy}</span>{" "}
+							<strong>{l.email ?? "no email"}</strong> <span className="muted">is {customers.find((c) => c.id === l.customerId)?.name ?? l.customerId} · linked by {l.linkedBy}</span>{" "}
 							{mayLink(who) && <button type="submit" className="secondary">Unlink</button>}
 						</form>
 					))}

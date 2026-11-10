@@ -29,7 +29,7 @@ export async function sessionFor(user: OidcUser, links: Links, env: Env = proces
 	if (!(await links.customerFor(user.sub))) {
 		// TEMPORARY: a login whose email CUSTOMER_EMAILS lists is linked once, on its first sign-in, even when the provider says the email is unverified (Curity's email_verified is not yet being set). Delete this with the variable.
 		const mapped = user.email ? parseCustomerEmails(env.CUSTOMER_EMAILS).get(user.email.toLowerCase()) : undefined;
-		if (mapped && customerById(mapped)) await links.link(who, mapped, "CUSTOMER_EMAILS");
+		if (mapped && (await customerById(mapped))) await links.link(who, mapped, "CUSTOMER_EMAILS");
 		else await links.notePending(who);
 	}
 	// TEMPORARY: STAFF_TRUST_UNVERIFIED=1 lets an unverified email be staff, because Curity does not set email_verified yet. Anyone who can register a Curity login with a staff address would get the console and may link logins to customers. Delete the variable once Curity verifies emails.
