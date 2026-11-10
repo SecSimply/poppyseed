@@ -257,8 +257,8 @@ describe("amounts", () => {
 		expect(parseAmount(" 12.00 ")).toBe(1_200);
 	});
 
-	it.each(["", "0", "0.00", "-5", "1,000", "12.345", "1e3", "abc", "99999999", "5."])("refuses %j", (text) => {
-		expect(parseAmount(text)).toBeUndefined();
+	it("refuses anything that is not a positive amount of rand with at most two decimals", () => {
+		for (const text of ["", "0", "0.00", "-5", "1,000", "12.345", "1e3", "abc", "99999999", "5."]) expect(parseAmount(text), JSON.stringify(text)).toBeUndefined();
 	});
 
 	it("asks for the customer's own approval strictly above the limit", () => {
