@@ -12,6 +12,14 @@ describe("sign-in configuration", () => {
 		expect(() => oidcFromEnv({ ...env, OIDC_ISSUER: "http://idp.example" }, "https://bank.example")).toThrow(/https/);
 	});
 
+	it("reads discovery at OIDC_ENTRY when set, which must be https, and leaves the issuer as it is", () => {
+		const c = oidcFromEnv({ ...env, OIDC_ENTRY: " https://login.example/oauth/v2/oauth-anonymous " }, "https://bank.example")!;
+		expect(c.entry).toBe("https://login.example/oauth/v2/oauth-anonymous");
+		expect(c.issuer).toBe(env.OIDC_ISSUER);
+		expect(oidcFromEnv(env, "https://bank.example")!.entry).toBeUndefined();
+		expect(() => oidcFromEnv({ ...env, OIDC_ENTRY: "http://login.example" }, "https://bank.example")).toThrow(/OIDC_ENTRY/);
+	});
+
 	it("registers /auth/callback on the public address, and asks for the profile and email", () => {
 		const c = oidcFromEnv(env, "https://bank.example")!;
 		expect(c.redirectUri).toBe("https://bank.example/auth/callback");

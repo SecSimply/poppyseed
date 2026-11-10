@@ -19,6 +19,9 @@ beforeAll(async () => {
 		const url = new URL(request.url ?? "/", issuer);
 		const send = (status: number, body: unknown) => (response.writeHead(status, { "content-type": "application/json" }), response.end(JSON.stringify(body)));
 		if (url.pathname === "/.well-known/openid-configuration") return send(200, { issuer, authorization_endpoint: `${issuer}/authorize`, token_endpoint: `${issuer}/token`, jwks_uri: `${issuer}/jwks` });
+		// The same issuer, served under another name: its endpoints are on this host's /entry, and one document names a different issuer.
+		if (url.pathname === "/entry/.well-known/openid-configuration") return send(200, { issuer, authorization_endpoint: `${issuer}/entry/authorize`, token_endpoint: `${issuer}/token`, jwks_uri: `${issuer}/jwks` });
+		if (url.pathname === "/other/.well-known/openid-configuration") return send(200, { issuer: `${issuer}/other`, authorization_endpoint: `${issuer}/other/authorize`, token_endpoint: `${issuer}/token`, jwks_uri: `${issuer}/jwks` });
 		if (url.pathname === "/jwks") return send(200, { keys: [jwk] });
 		if (url.pathname === "/token" && request.method === "POST") {
 			let raw = "";
@@ -83,6 +86,14 @@ describe("sign in with an OpenID Connect provider (authorization code + PKCE)", 
 		const oidc = new Oidc(config());
 		expect(await finish(oidc, await login(oidc, { sub: "sub-1" }))).toEqual({ sub: "sub-1" });
 		expect(await finish(oidc, await login(oidc, { sub: "other", email: "Dev@Example.com" }))).toEqual({ sub: "other", email: "Dev@Example.com" });
+	});
+
+	test("reads discovery at the entry address, so people are sent there, and still requires the configured issuer", async () => {
+		const viaEntry = new Oidc(config({ entry: `${issuer}/entry` }));
+		const started = new URL((await viaEntry.begin()).url);
+		expect(started.origin + started.pathname).toBe(`${issuer}/entry/authorize`);
+		// An entry whose document names another issuer is refused, not trusted.
+		await expect(new Oidc(config({ entry: `${issuer}/other` })).begin()).rejects.toThrow(/issuer is/);
 	});
 
 	test("sends the PKCE verifier, and the client secret as HTTP Basic only for a confidential client", async () => {

@@ -5,7 +5,8 @@ type Env = Record<string, string | undefined>;
 
 /**
  * Reads OIDC_* variables: OIDC_ISSUER, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET (the Curity client), and optionally
- * OIDC_SCOPES and OIDC_REDIRECT_URI (checked against this site's address, not used to build it). Returns undefined when OIDC_ISSUER is not set; throws when it is set incompletely. Any account at the
+ * OIDC_SCOPES, OIDC_ENTRY (where to reach the provider when it serves the same issuer under another name: its discovery
+ * document is read there, and the issuer in it must still be OIDC_ISSUER) and OIDC_REDIRECT_URI (checked against this site's address, not used to build it). Returns undefined when OIDC_ISSUER is not set; throws when it is set incompletely. Any account at the
  * provider may sign in; what each may do is decided by `lib/auth.ts`.
  */
 export function oidcFromEnv(env: Env, publicUrl: string): OidcConfig | undefined {
@@ -13,6 +14,8 @@ export function oidcFromEnv(env: Env, publicUrl: string): OidcConfig | undefined
 	if (!issuer) return undefined;
 	const url = URL.parse(issuer);
 	if (!url || (url.protocol !== "https:" && url.hostname !== "localhost")) throw new Error("OIDC_ISSUER must be an https:// URL");
+	const entry = env.OIDC_ENTRY?.trim();
+	if (entry && URL.parse(entry)?.protocol !== "https:") throw new Error("OIDC_ENTRY must be an https:// URL");
 	if (!env.OIDC_CLIENT_ID) throw new Error("Set OIDC_CLIENT_ID (the client registered in Curity)");
 	if (!env.OIDC_CLIENT_SECRET) throw new Error("Set OIDC_CLIENT_SECRET: Protea Bank is a confidential client");
 	// Where Curity sends people back to. The route that finishes a sign-in is /auth/callback on this site, so a
@@ -22,6 +25,7 @@ export function oidcFromEnv(env: Env, publicUrl: string): OidcConfig | undefined
 	if (given && given !== redirectUri) throw new Error(`OIDC_REDIRECT_URI is ${given}, but this site finishes sign-ins at ${redirectUri}: register that address in Curity, or fix POPPYSEED_BASE_URL`);
 	return {
 		issuer,
+		...(entry ? { entry } : {}),
 		clientId: env.OIDC_CLIENT_ID,
 		clientSecret: env.OIDC_CLIENT_SECRET,
 		scopes: env.OIDC_SCOPES?.trim() || "openid profile email",

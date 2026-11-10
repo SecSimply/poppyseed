@@ -7,7 +7,13 @@ import { createHash, randomBytes } from "node:crypto";
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
 
 export interface OidcConfig {
+	/** The provider's issuer, exactly as its discovery document and its tokens say it. */
 	issuer: string;
+	/**
+	 * Where to read the discovery document when that is not the issuer's own address: the address people and this server
+	 * reach the provider by, when it serves the same issuer under another name. The document's `issuer` must still equal `issuer`.
+	 */
+	entry?: string;
 	clientId: string;
 	/** Set for a confidential client (client_secret_basic). Leave unset for a public client: PKCE alone then protects the code. */
 	clientSecret?: string;
@@ -69,7 +75,7 @@ export class Oidc {
 
 	private async provider() {
 		if (this.cached && this.cached.until > Date.now()) return this.cached;
-		const response = await fetch(`${this.config.issuer.replace(/\/$/, "")}/.well-known/openid-configuration`, { redirect: "error", signal: AbortSignal.timeout(TIMEOUT) });
+		const response = await fetch(`${(this.config.entry ?? this.config.issuer).replace(/\/$/, "")}/.well-known/openid-configuration`, { redirect: "error", signal: AbortSignal.timeout(TIMEOUT) });
 		if (!response.ok) throw new Error(`discovery: HTTP ${response.status}`);
 		const metadata = (await response.json()) as ProviderMetadata;
 		if (metadata.issuer !== this.config.issuer) throw new Error(`discovery: issuer is ${metadata.issuer}, expected ${this.config.issuer}`);
