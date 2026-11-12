@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -33,6 +34,18 @@ import androidx.fragment.app.FragmentActivity
 import za.co.proteabank.authenticator.core.EnrollResult
 import za.co.proteabank.authenticator.core.Enrollment
 import za.co.proteabank.authenticator.core.EnrollmentLink
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import za.co.proteabank.authenticator.core.Operations
+import za.co.proteabank.authenticator.core.Outcome
+import za.co.proteabank.authenticator.core.PendingOperation
+import za.co.proteabank.authenticator.device.Approver
+import za.co.proteabank.authenticator.device.ApprovalResult
 import za.co.proteabank.authenticator.device.DeviceKeys
 import za.co.proteabank.authenticator.net.Http
 import za.co.proteabank.authenticator.store.DeviceStore
@@ -45,6 +58,8 @@ private sealed interface Screen {
 	data class Working(val what: String) : Screen
 	data class Code(val code: String, val customer: String, val enrolled: Enrolled) : Screen
 	data class Problem(val text: String) : Screen
+	data class Detail(val op: PendingOperation) : Screen
+	data class Result(val text: String, val removeNow: Boolean = false) : Screen
 }
 
 class MainActivity : FragmentActivity() {
@@ -64,8 +79,62 @@ class MainActivity : FragmentActivity() {
 	private fun App(store: DeviceStore) {
 		var enrolled by remember { mutableStateOf(store.load()) }
 		var screen by remember { mutableStateOf<Screen>(Screen.Home) }
-		var check by remember { mutableStateOf<String?>(null) }
+		var status by remember { mutableStateOf<String?>(null) }
+		var ops by remember { mutableStateOf<List<PendingOperation>>(emptyList()) }
 		val camera = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> screen = if (ok) Screen.Scanning else Screen.Problem("The camera is needed to scan the code. You can also paste the link below.") }
+
+		fun refresh() {
+			val e = enrolled ?: return
+			Http.run({ Http.signed(e.origin, e.deviceId, "GET", "/authenticator/operations") }) { r ->
+				r.fold({
+					when (it.status) {
+						200 -> { ops = Operations.list(it.body).filter { o -> o.open }; status = null }
+						401 -> { ops = emptyList(); status = "The bank does not accept this phone yet. Press \"The codes match\" on the website, or ask staff if the phone was removed." }
+						else -> status = "The bank answered ${it.status}."
+					}
+				}, { status = "Could not reach the bank: ${it.message}" })
+			}
+		}
+		LaunchedEffect(enrolled) {
+			if (enrolled != null) lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { while (true) { refresh(); delay(5_000) } }
+		}
+
+		fun finish(approving: Boolean, op: PendingOperation, result: Result<za.co.proteabank.authenticator.net.HttpResult>) {
+			val outcome = result.fold({ Operations.outcome(approving, it.status, it.body) }, { Outcome.Failed("Could not reach the bank: ${it.message}") })
+			screen = Screen.Result(when (outcome) {
+				Outcome.Approved -> "Approved. The bank is making the payment."
+				Outcome.Declined -> "Declined. Nothing was paid."
+				is Outcome.Changed -> "This payment changed while you were looking at it. Nothing was approved. It will show again with its new terms."
+				Outcome.NotOpen -> "This payment was already decided or has expired."
+				Outcome.NotActive -> "The bank does not accept this phone."
+				Outcome.Refused -> "The bank refused the approval. Nothing was paid."
+				Outcome.Gone -> "The bank no longer has this payment."
+				is Outcome.Failed -> outcome.text
+			})
+			refresh()
+		}
+
+		fun approve(op: PendingOperation) {
+			val e = enrolled ?: return
+			val hash = op.hash ?: return
+			if (!op.consistent) return
+			Approver.approve(this, e.origin, e.deviceId, op.id, op.revision, hash, "${op.amount ?: ""} ${op.summary}".trim()) { signed ->
+				when (signed) {
+					is ApprovalResult.Signed -> {
+						screen = Screen.Working("Sending your approval")
+						Http.run({ Http.signed(e.origin, e.deviceId, "POST", "/authenticator/operations/${op.id}/approve", Operations.approveBody(op.revision, signed.approval)) }) { finish(true, op, it) }
+					}
+					is ApprovalResult.NotApproved -> screen = Screen.Result("Not approved: ${signed.reason}. Nothing was paid.")
+					ApprovalResult.KeyLost -> screen = Screen.Result("A fingerprint was added to this phone, so the approval key stopped working. Remove the phone here and enroll again.", removeNow = true)
+				}
+			}
+		}
+
+		fun decline(op: PendingOperation) {
+			val e = enrolled ?: return
+			screen = Screen.Working("Declining")
+			Http.run({ Http.signed(e.origin, e.deviceId, "POST", "/authenticator/operations/${op.id}/decline") }) { finish(false, op, it) }
+		}
 
 		fun take(text: String) {
 			val link = EnrollmentLink.parse(text)
@@ -88,12 +157,7 @@ class MainActivity : FragmentActivity() {
 		}
 
 		when (val s = screen) {
-			Screen.Home -> if (enrolled != null) Enrolled(enrolled!!, check, onCheck = {
-				val e = enrolled!!; check = "Checking…"
-				Http.run({ Http.signed(e.origin, e.deviceId, "GET", "/authenticator/operations") }) { r ->
-					check = r.fold({ if (it.status == 200) "Connected. Nothing is waiting." .takeIf { _ -> !it.body.contains("operation_id") } ?: "Connected. Something is waiting." else if (it.status == 401) "The bank does not accept this phone yet. Press \"The codes match\" on the website." else "The bank answered ${it.status}." }, { "Could not reach the bank: ${it.message}" })
-				}
-			}, onRemove = { DeviceKeys.delete(); store.clear(); enrolled = null; check = null })
+			Screen.Home -> if (enrolled != null) Inbox(enrolled!!, ops, status, onOpen = { screen = Screen.Detail(it) }, onRemove = { DeviceKeys.delete(); store.clear(); enrolled = null; ops = emptyList(); status = null })
 			else Home(onScan = {
 				if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) screen = Screen.Scanning else camera.launch(Manifest.permission.CAMERA)
 			}, onPaste = ::take)
@@ -122,6 +186,16 @@ class MainActivity : FragmentActivity() {
 				Spacer(Modifier.height(16.dp))
 				Button(onClick = { screen = Screen.Home }) { Text("Done") }
 			}
+			is Screen.Detail -> {
+				// The list refreshes under us: show the latest version of this payment, or say it is gone.
+				val op = ops.firstOrNull { it.id == s.op.id } ?: s.op
+				Detail(op, stillOpen = ops.any { it.id == op.id }, onApprove = { approve(op) }, onDecline = { decline(op) }, onBack = { screen = Screen.Home })
+			}
+			is Screen.Result -> {
+				Text(s.text, fontSize = 18.sp)
+				Spacer(Modifier.height(16.dp))
+				Button(onClick = { if (s.removeNow) { DeviceKeys.delete(); store.clear(); enrolled = null; ops = emptyList() }; screen = Screen.Home }) { Text(if (s.removeNow) "Remove this phone" else "Back") }
+			}
 			is Screen.Problem -> {
 				Text(s.text)
 				Spacer(Modifier.height(12.dp))
@@ -144,16 +218,35 @@ class MainActivity : FragmentActivity() {
 	}
 
 	@Composable
-	private fun Enrolled(e: Enrolled, check: String?, onCheck: () -> Unit, onRemove: () -> Unit) {
+	private fun Inbox(e: Enrolled, ops: List<PendingOperation>, status: String?, onOpen: (PendingOperation) -> Unit, onRemove: () -> Unit) {
 		Text("Protea", fontSize = 28.sp)
-		Spacer(Modifier.height(8.dp))
-		Text("Enrolled for ${e.customer}")
-		Text(e.origin)
+		Text("${e.customer} · ${e.origin}", fontSize = 13.sp)
 		Spacer(Modifier.height(16.dp))
-		Button(onClick = onCheck) { Text("Check the connection") }
-		check?.let { Spacer(Modifier.height(8.dp)); Text(it) }
-		Spacer(Modifier.height(24.dp))
+		status?.let { Text(it); Spacer(Modifier.height(12.dp)) }
+		if (status == null && ops.isEmpty()) Text("Nothing is waiting for you. This list updates while the app is open.")
+		ops.forEach { op ->
+			OutlinedButton(onClick = { onOpen(op) }, modifier = Modifier.fillMaxWidth()) { Text("${op.amount ?: "Payment"}  ·  ${op.agentName ?: "an agent"}") }
+		}
+		Spacer(Modifier.height(32.dp))
 		OutlinedButton(onClick = onRemove) { Text("Remove this phone from the app") }
 		Text("Removing it here does not remove it at the bank: ask staff, or add the phone again after they do.", fontSize = 13.sp)
+	}
+
+	@Composable
+	private fun Detail(op: PendingOperation, stillOpen: Boolean, onApprove: () -> Unit, onDecline: () -> Unit, onBack: () -> Unit) {
+		Text("${op.agentName ?: "An agent"} asks you to approve", fontSize = 16.sp)
+		Spacer(Modifier.height(8.dp))
+		Text(op.amount ?: "", fontSize = 40.sp)
+		Spacer(Modifier.height(8.dp))
+		Text(op.summary, fontSize = 18.sp)
+		op.expiresAt?.let { Spacer(Modifier.height(8.dp)); Text("Expires at " + runCatching { DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault()).format(Instant.parse(it)) }.getOrDefault(it), fontSize = 13.sp) }
+		Spacer(Modifier.height(20.dp))
+		when {
+			!op.consistent -> Text("This request does not match its own fingerprint, so it cannot be approved. Decline it and tell the bank.")
+			!stillOpen -> Text("This payment is no longer waiting.")
+			else -> Button(onClick = onApprove) { Text("Approve with fingerprint") }
+		}
+		if (stillOpen) OutlinedButton(onClick = onDecline) { Text("Decline") }
+		OutlinedButton(onClick = onBack) { Text("Back") }
 	}
 }
