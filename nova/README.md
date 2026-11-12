@@ -2,6 +2,8 @@
 
 A fictional South African bank, headquartered in Paarl, that shows what a personal agent can do with the Personal Agent Protocol. It is a Poppyseed site with a banking theme and a short list of services. Amounts are in South African rand (ZAR). Nothing here is real: no money, accounts or people. The directory and package keep the earlier name, `nova` and `nova-bank`, so the Railway services and their settings are unchanged.
 
+**How it all fits together:** [ARCHITECTURE.html](ARCHITECTURE.html) shows the components, the sign-in and payment flows, the phone, where each piece runs and what is still open. Open it in a browser.
+
 **Status:** phase 8 of 8, complete, with sign-in through Curity. The Inspector has steps for the excluded tasks, browsing, and a blocked run, and [DEMO.md](DEMO.md) is a script for showing all five capabilities. Rates, branches, accounts, balances, transactions, payments, a support chat, browsing, excluded tasks and blocking work, with Direct and Device Sign-In and separate scopes. The plan is in the project history; each phase adds one capability.
 
 | Service | Shows | Phase |
@@ -29,6 +31,7 @@ Customers and staff sign in with Curity (OpenID Connect, authorization code with
 - **Menu:** **Account** signs in a customer; **Staff** signs in staff, asking Curity for a fresh sign-in each time.
 - **Who a Curity user is:** a login is linked to a customer by its Curity `sub`, in Postgres. A login with no link signs in and sees **no accounts**, and waits in `/staff` under *Customer logins*. Staff either link it to an existing customer, or press **Create customer and link**, which opens a new customer with an everyday account and a saver of sandbox money (R15 000 and R5 000) and links the login to it.
 - **Email must be verified.** A login whose email Curity marks `email_verified: false` identifies nobody here: it maps to no customer and is never staff. Curity users are made by hand, so a login that carries no such claim is trusted. If Curity ever allows self-registration, make it send the claim.
+- **`STAFF_TRUST_UNVERIFIED=1`** is a temporary switch on `nova-bank`: Curity does not yet send `email_verified`, so a staff email is trusted unverified. Customers are unaffected. Remove it once Curity verifies emails or self-registration is closed.
 - **Staff:** `STAFF_EMAILS` lists the emails that may use the console, kept by hand. Empty, nobody signs in as staff. A customer's login never opens the console.
 - **The emergency key:** `POPPY_STAFF_KEY` still opens `/staff?key=…` when Curity is down or no one is listed yet. The console says when someone came in that way.
 - **What staff did** (took, replied, handed back, blocked, unblocked) is listed at the foot of the console, with who and how they got in. It is kept in memory.
@@ -47,7 +50,9 @@ Its details live in one file, `nova/proteabankoidc.md`, which holds the secret a
 
 `OIDC_REDIRECT_URI` is checked, not trusted: the site finishes sign-ins at `<its address>/auth/callback`, so a registered address that says anything else stops the site at start-up with a message that names both.
 
-**Other variables:** `STAFF_EMAILS`, and the existing `POPPYSEED_BASE_URL`, `POPPYSEED_SECRET` and `POPPY_STAFF_KEY`.
+**Where Curity is reached:** `OIDC_ENTRY` (https) is the address the bank reads Curity's discovery from, `https://idp.proteabank.co.za/oauth/v2/oauth-anonymous`, while Curity's issuer is still `https://idp.fluffycloud.co.za/oauth/v2/oauth-anonymous`. The bank requires the issuer in the document to equal `OIDC_ISSUER`. The document is cached for an hour, so restart the service after a change in Curity. Do not use Curity's *Issuer Override*: it breaks every endpoint address.
+
+**Other variables:** `STAFF_EMAILS`, `STAFF_TRUST_UNVERIFIED`, `OIDC_ENTRY`, and the existing `POPPYSEED_BASE_URL`, `POPPYSEED_SECRET` and `POPPY_STAFF_KEY`.
 
 `scripts/login-local.ts` proves all of it against a stand-in provider (the Inspector's `scripts/mock-oidc.ts`): a stranger, a customer, a login that is not a customer, a staff member, and an attacker who forges a cookie, replays a callback, signs someone out from another site, or tries an open redirect.
 
@@ -121,6 +126,7 @@ The demo customer Thandi Nkosi has the saved payees `pye_thandi_rent`, `pye_than
 - **One Poppyseed instance and one set of bank data per process.** In a production build a page and an API route can be bundled separately, each with its own copy of a module. Without a single shared instance, a conversation started through the API was missing from the staff page, and a payment made through the API was missing from the payments page.
 - **Two kinds of payment, by size.** A payment to a saved payee up to R500,00, or a transfer between the customer's own accounts up to R5 000,00, may be confirmed by an agent under a standing permission. Above those limits the operation sets `user_approval_required`, and the bank refuses a confirmation that claims a standing permission. Only one the person approved (`approved_by: user`) is accepted.
 - **Proposing a payment reveals whether the account can cover it.** A token with only `payments:write` could therefore learn roughly what an account holds by proposing different amounts, without `accounts:read`. The scope's description says so, so the customer sees it when granting the scope. Nothing moves until a proposal is confirmed.
+- **Two bank-only tools serve the bridge.** `who_am_i` tells an agent which customer it is signed in as. `end_all_sign_ins` ends every sign-in that agent has for the customer; the bridge calls it on sign-out and does not offer it to Claude.
 - **An agent can only pay saved payees.** There is no tool to add one. Adding a payee is a task the bank will not offer to agents (phase 6).
 - **A payment moves money once.** The operation id is the idempotency key, and the funds are checked again when the payment is performed, since the balance may have changed since it was proposed.
 - **Balances and transactions are separate scopes.** `list_accounts` needs `accounts:read` and `list_transactions` needs `transactions:read`. A transaction never carries a balance, so a token can be given one view without the other.

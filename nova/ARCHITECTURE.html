@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Protea Bank Architecture</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap">
+<style>
+/* Layout: a reference page. A sticky contents rail on wide screens, one column on a phone. The crimson is the protea flower's; it marks the one thing that matters in each diagram. */
+:root {
+  --bg: #f7f5f6; --panel: #ffffff; --fg: #231c20; --muted: #6a5f65; --line: #ddd5d9;
+  --accent: #b8143f; --accent-soft: #f6e2e8; --ok: #1f6b4a; --warn: #8a5a00; --warn-soft: #f8ecd0;
+  --box: #ffffff; --box-line: #8d7f86; --dash: #b8143f;
+  --display: "Fraunces", Georgia, serif; --body: "IBM Plex Sans", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #17121a; --panel: #211a25; --fg: #f1eaee; --muted: #aa9ea6; --line: #3a2f40;
+  --accent: #ee5d86; --accent-soft: #3a1b27; --ok: #6fcf9f; --warn: #e6b450; --warn-soft: #3a2e12;
+  --box: #2a2230; --box-line: #8d7f96; --dash: #ee5d86; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #17121a; --panel: #211a25; --fg: #f1eaee; --muted: #aa9ea6; --line: #3a2f40;
+  --accent: #ee5d86; --accent-soft: #3a1b27; --ok: #6fcf9f; --warn: #e6b450; --warn-soft: #3a2e12;
+  --box: #2a2230; --box-line: #8d7f96; --dash: #ee5d86; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 16px/1.6 var(--body); padding-block: 32px 72px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 48px; }
+nav { position: sticky; top: 24px; align-self: start; font-size: 14px; }
+nav b { display: block; font: 500 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+nav a { display: block; color: var(--muted); text-decoration: none; padding: 4px 0; }
+nav a:hover, nav a:focus-visible { color: var(--accent); }
+main { min-width: 0; }
+h1 { font: 600 clamp(32px, 5vw, 46px)/1.1 var(--display); margin: 0 0 12px; text-wrap: balance; }
+h2 { font: 600 26px/1.2 var(--display); margin: 56px 0 12px; text-wrap: balance; scroll-margin-top: 16px; }
+h3 { font: 600 17px/1.3 var(--body); margin: 28px 0 6px; }
+p, li { max-width: 68ch; }
+.lede { font-size: 18px; color: var(--muted); max-width: 62ch; }
+.meta { font: 400 13px var(--mono); color: var(--muted); margin-bottom: 28px; }
+code, .mono { font-family: var(--mono); font-size: .88em; }
+code { background: var(--accent-soft); padding: 1px 5px; border-radius: 3px; }
+.fig { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 16px; margin: 16px 0; overflow-x: auto; }
+.fig svg { display: block; min-width: 760px; width: 100%; height: auto; }
+.fig figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; min-width: 0; }
+svg text { font-family: var(--body); fill: var(--fg); font-size: 13px; }
+svg .t-small { font-size: 11.5px; fill: var(--muted); }
+svg .t-title { font-weight: 600; font-size: 14px; }
+svg .t-num { font: 600 12px var(--mono); fill: var(--accent); }
+svg .box { fill: var(--box); stroke: var(--box-line); stroke-width: 1.2; }
+svg .zone { fill: none; stroke: var(--line); stroke-width: 1.2; }
+svg .zone-fill { fill: var(--accent-soft); stroke: none; }
+svg .todo { fill: var(--box); stroke: var(--dash); stroke-width: 1.4; stroke-dasharray: 5 4; }
+svg .arrow { stroke: var(--fg); stroke-width: 1.3; fill: none; marker-end: url(#ah); }
+svg .arrow-a { stroke: var(--accent); stroke-width: 1.8; fill: none; marker-end: url(#ha); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+.tablewrap { overflow-x: auto; margin: 12px 0; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); min-width: 0; }
+th { font: 500 12px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); background: transparent; }
+tr:last-child td { border-bottom: 0; }
+td:first-child { white-space: nowrap; font-weight: 500; }
+.legend { counter-reset: n; list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 6px; }
+.legend li { display: grid; grid-template-columns: 28px 1fr; gap: 6px; }
+.legend li::before { counter-increment: n; content: counter(n); font: 600 13px var(--mono); color: var(--accent); }
+.flow { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 0; border-left: 2px solid var(--line); }
+.flow li { display: grid; grid-template-columns: minmax(0, 190px) minmax(0, 1fr); gap: 16px; padding: 10px 0 10px 16px; position: relative; max-width: none; }
+.flow li::before { content: ""; position: absolute; left: -6px; top: 18px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+.flow .who { font: 500 12.5px/1.4 var(--mono); color: var(--muted); }
+.flow .who i { font-style: normal; color: var(--accent); }
+.pill { display: inline-block; font: 500 11.5px var(--mono); padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+.pill.done { color: var(--ok); border-color: var(--ok); }
+.pill.open { color: var(--warn); border-color: var(--warn); }
+.note { background: var(--warn-soft); border: 1px solid var(--warn); border-radius: 6px; padding: 10px 14px; font-size: 14.5px; max-width: 72ch; }
+a { color: var(--accent); }
+footer { margin-top: 64px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+@media (max-width: 860px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  nav { position: static; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+  nav b { width: 100%; margin-bottom: 2px; }
+  .flow li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}
+</style>
+
+<div class="wrap">
+<nav aria-label="Contents">
+  <b>Contents</b>
+  <a href="#overview">Overview</a>
+  <a href="#components">Components</a>
+  <a href="#where">Where things run</a>
+  <a href="#connect">Connecting Claude</a>
+  <a href="#signin">Signing in an agent</a>
+  <a href="#pay">Paying</a>
+  <a href="#phone">The phone</a>
+  <a href="#trust">What protects what</a>
+  <a href="#data">Data and state</a>
+  <a href="#ops">Configuration</a>
+  <a href="#open">Open items</a>
+  <a href="#docs">Documents</a>
+</nav>
+
+<main>
+<h1>Protea Bank, end to end</h1>
+<p class="lede">A fictional South African bank that lets a customer's Claude read accounts and make payments, with the customer's phone as the final say on money leaving. This page describes every part, how they talk to each other, and what each one is trusted with.</p>
+<p class="meta">Checked against the code and live deployments on 12 November 2026. Nothing here is real: no money, accounts or people.</p>
+
+<h2 id="overview">Overview</h2>
+<p>Protea Bank is a Next.js site built on <strong>Poppyseed</strong>, an implementation of the Personal Agent Protocol (Poppy). Poppy defines how an AI agent, acting for a person, signs in to a company, what it may do there, and how the person approves what matters. Three things were added around the bank:</p>
+<ul>
+  <li><strong>A bridge</strong> that makes Claude a Poppy agent. Claude talks MCP to the bridge; the bridge talks Poppy to the bank. Each person's agent sign-in is separate.</li>
+  <li><strong>Curity</strong> as the identity provider for customers, staff, and the bridge's own users. The bank never holds a password.</li>
+  <li><strong>An authenticator</strong>: an enrolled phone that approves agent payments with a fingerprint. The bank's side is built and live; the Android app is the next piece.</li>
+</ul>
+
+<h2 id="components">Components</h2>
+<figure class="fig">
+<svg viewBox="0 0 980 480" role="img" aria-label="Components and the connections between them">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--fg)"/></marker>
+    <marker id="ha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker>
+  </defs>
+  <text class="t-small" x="20" y="18">THE PERSON</text><text class="t-small" x="380" y="18">AGENT SIDE AND IDENTITY</text><text class="t-small" x="740" y="18">THE BANK</text>
+
+  <rect class="box" x="20" y="30" width="200" height="90" rx="6"/><text class="t-title" x="36" y="56">Claude</text><text class="t-small" x="36" y="76">Desktop or claude.ai</text><text class="t-small" x="36" y="94">connector: mcp.proteabank.co.za</text>
+  <rect class="box" x="20" y="190" width="200" height="80" rx="6"/><text class="t-title" x="36" y="216">Browser</text><text class="t-small" x="36" y="236">account page, approvals,</text><text class="t-small" x="36" y="252">staff console</text>
+  <rect class="todo" x="20" y="350" width="200" height="90" rx="6"/><text class="t-title" x="36" y="376">Protea app (Android)</text><text class="t-small" x="36" y="396">approves with a fingerprint</text><text class="t-small" x="36" y="412">to build; command-line stand-in</text><text class="t-small" x="36" y="428">exists today</text>
+
+  <rect class="box" x="380" y="30" width="200" height="90" rx="6"/><text class="t-title" x="396" y="56">Protea bridge</text><text class="t-small" x="396" y="76">MCP server + Poppy agent</text><text class="t-small" x="396" y="94">Railway, mcp.proteabank.co.za</text>
+  <rect class="box" x="380" y="150" width="200" height="70" rx="6"/><text class="t-title" x="396" y="176">Agent identity</text><text class="t-small" x="396" y="196">Cloudflare Worker, client.json,</text><text class="t-small" x="396" y="210">jwks.json, logo.png</text>
+  <rect class="box" x="380" y="290" width="200" height="90" rx="6"/><text class="t-title" x="396" y="316">Curity</text><text class="t-small" x="396" y="336">OpenID Connect sign-in</text><text class="t-small" x="396" y="354">idp.proteabank.co.za (tunnel)</text>
+
+  <rect class="zone-fill" x="740" y="30" width="220" height="350" rx="8"/><rect class="zone" x="740" y="30" width="220" height="350" rx="8"/>
+  <text class="t-title" x="756" y="54">Protea Bank (nova-bank)</text>
+  <rect class="box" x="756" y="66" width="188" height="70" rx="6"/><text class="t-title" x="768" y="90">Poppy API + tools</text><text class="t-small" x="768" y="108">/poppy/*, accounts, payments</text><text class="t-small" x="768" y="122">approval policy</text>
+  <rect class="box" x="756" y="150" width="188" height="70" rx="6"/><text class="t-title" x="768" y="174">Website + staff</text><text class="t-small" x="768" y="192">consent, /account, /payments,</text><text class="t-small" x="768" y="206">/staff, QR enrollment</text>
+  <rect class="box" x="756" y="234" width="188" height="70" rx="6"/><text class="t-title" x="768" y="258">Authenticator API</text><text class="t-small" x="768" y="276">/authenticator/*, signed</text><text class="t-small" x="768" y="290">device requests</text>
+  <text class="t-small" x="756" y="332">app.proteabank.co.za (Cloudflare)</text><text class="t-small" x="756" y="350">Railway service nova-bank</text>
+  <rect class="box" x="740" y="410" width="220" height="56" rx="6"/><text class="t-title" x="756" y="434">Postgres</text><text class="t-small" x="756" y="452">customers, accounts, payees, devices</text>
+  <path class="arrow" d="M850,380 L850,410"/>
+
+  <path class="arrow" d="M220,70 L380,70"/><text class="t-num" x="290" y="62">1</text>
+  <path class="arrow-a" d="M580,90 L740,100"/><text class="t-num" x="650" y="86">2</text>
+  <path class="arrow" d="M740,185 L580,185"/><text class="t-num" x="650" y="178">3</text>
+  <path class="arrow" d="M220,230 L330,230 L330,275 L700,275 L700,200 L740,200"/><text class="t-num" x="500" y="268">4</text>
+  <path class="arrow" d="M220,262 L380,340"/><text class="t-num" x="290" y="320">5</text>
+  <path class="arrow" d="M740,340 L580,340"/><text class="t-num" x="650" y="332">6</text>
+  <path class="arrow-a" d="M220,415 L670,415 L670,270 L740,270"/><text class="t-num" x="440" y="407">7</text>
+</svg>
+<figcaption>Dashed box: not built yet. The crimson arrows carry the two things the customer does not see: the agent's calls (2) and the phone's signed approval (7).</figcaption>
+</figure>
+<ol class="legend">
+  <li><span>Claude calls the bridge over MCP (HTTPS, OAuth 2.1). Claude registers itself, and the customer logs in at Curity once to connect.</span></li>
+  <li><span>The bridge calls the bank as a Poppy agent: a Session Key proves each request (DPoP), and the bank issues an Account Token per person once they approve.</span></li>
+  <li><span>The bank reads the agent's public identity from the Worker (<code>client.json</code>, <code>jwks.json</code>) and checks the agent's signed assertions against it.</span></li>
+  <li><span>The customer's browser: opens the sign-in link the bridge gave, approves scopes on the bank's page, adds a phone (QR), and uses the account pages.</span></li>
+  <li><span>The browser signs in to Curity for the bank (customers and staff) and for the bridge's connector.</span></li>
+  <li><span>The bank and the bridge exchange the login code with Curity on their own servers. Neither holds a password, and the bank keeps only a sealed cookie.</span></li>
+  <li><span>The phone signs every request with a key that never leaves it, and signs an approval of one specific payment with a second key unlocked by a fingerprint.</span></li>
+</ol>
+
+<h3>What each part is</h3>
+<div class="tablewrap"><table>
+<thead><tr><th>Part</th><th>What it does</th><th>Where the code is</th></tr></thead>
+<tbody>
+<tr><td>Poppyseed</td><td>The protocol: sessions, DPoP, consent, operations (propose, then confirm), conversations. Published as <code>poppyseed</code>; the bridge uses version 0.3.2 from a vendored tarball.</td><td>repo <code>SecSimply/poppyseed</code>, <code>packages/core</code></td></tr>
+<tr><td>Protea Bank</td><td>The Next.js site. Tools (<code>list_accounts</code>, <code>list_transactions</code>, <code>pay_payee</code>, transfers, <code>who_am_i</code>), the approval policy, the website, the staff console, the authenticator routes.</td><td><code>nova/</code>; <code>poppyseed.config.ts</code>, <code>lib/</code>, <code>app/</code></td></tr>
+<tr><td>Bridge</td><td>One MCP server for many people. Each person's sign-in state is stored encrypted in Postgres, so replicas are interchangeable. Tools: <code>bank_sign_in</code>, <code>bank_wait_for_sign_in</code>, <code>bank_status</code>, <code>bank_confirm_payment</code>, <code>bank_sign_out</code>, plus the bank's own.</td><td>repo <code>SecSimply/protea-bridge</code> (private)</td></tr>
+<tr><td>Agent identity</td><td>Three static files at <code>agent.proteabank.co.za</code>. Its address is the agent's <code>client_id</code>; changing it makes the bank treat the agent as new.</td><td>bridge repo <code>site/</code>, built by <code>worker/build.mjs</code></td></tr>
+<tr><td>Curity</td><td>Identity provider. Its issuer name is still <code>idp.fluffycloud.co.za/…</code>, answered under each hostname; the bank and bridge read discovery at the proteabank entry address and still check the issuer.</td><td>external; settings in <code>nova/README.md</code></td></tr>
+<tr><td>Inspector</td><td>A tool that runs a real test agent against the bank and shows every request. Used for the demo script and conformance.</td><td><code>inspector/</code>, <code>nova/DEMO.md</code></td></tr>
+<tr><td>Fake phone</td><td>A command-line phone that follows the authenticator protocol exactly. Stands in until the Android app exists.</td><td><code>nova/scripts/fake-phone.ts</code></td></tr>
+</tbody></table></div>
+
+<h2 id="where">Where things run</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>Address</th><th>What answers</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>app.proteabank.co.za</td><td>Railway <code>nova-bank</code>, through Cloudflare</td><td>GitHub-linked: a push to <code>master</code> deploys. SSL mode is Full, not yet Full (strict).</td></tr>
+<tr><td>mcp.proteabank.co.za</td><td>Railway <code>protea-bridge</code></td><td>DNS only, not proxied. GitHub-linked. MCP at <code>/mcp</code>, health at <code>/healthz</code>, icon at <code>/favicon.ico</code>.</td></tr>
+<tr><td>agent.proteabank.co.za</td><td>Cloudflare Worker <code>protea-agent</code></td><td>Uploaded through the Cloudflare API, not by a push. The Railway service of the same name is superseded.</td></tr>
+<tr><td>idp.proteabank.co.za</td><td>Curity, through a Cloudflare tunnel</td><td>Entry path for sign-in. The issuer in tokens is unchanged.</td></tr>
+<tr><td>proteabank.co.za</td><td>Static "coming soon" page with the flower icon</td><td>Separate from the bank.</td></tr>
+</tbody></table></div>
+
+<h2 id="connect">Connecting Claude to the bridge</h2>
+<ol class="flow">
+  <li><span class="who">Claude → <i>bridge</i></span><span>The customer adds <code>https://mcp.proteabank.co.za/mcp</code> as a custom connector. Claude registers itself as an OAuth client with the bridge.</span></li>
+  <li><span class="who"><i>bridge</i> → browser → Curity</span><span>The bridge sends the customer to Curity to log in. This identifies the person to the bridge (their Curity <code>sub</code>); it is not yet a sign-in to the bank.</span></li>
+  <li><span class="who">Curity → <i>bridge</i></span><span>Curity returns to <code>/auth/curity/callback</code>. The bridge issues Claude its own token naming that person. Every tool call after that runs as that person only.</span></li>
+</ol>
+
+<h2 id="signin">Signing an agent in to the bank</h2>
+<p>This is Poppy's Device Sign-In. The agent never sees the customer's credentials.</p>
+<ol class="flow">
+  <li><span class="who">Claude → <i>bridge</i></span><span><code>bank_sign_in</code>. The bridge asks the bank to start a device sign-in for the scopes it wants (<code>accounts:read</code>, <code>transactions:read</code>, and <code>payments:write</code> when payments are allowed).</span></li>
+  <li><span class="who"><i>bridge</i> → bank</span><span>The request carries a client assertion signed with the agent's key (verified against <code>jwks.json</code> at the agent identity) and a DPoP proof from a fresh Session Key.</span></li>
+  <li><span class="who">bank → <i>bridge</i> → Claude</span><span>A link and a short code. Claude shows them, then calls <code>bank_wait_for_sign_in</code>, which waits up to 45 seconds.</span></li>
+  <li><span class="who">customer's browser → bank</span><span>The customer opens the link, signs in with Curity, checks the code matches and sees the exact scopes and the agent's name and logo. Only the signed-in customer can approve.</span></li>
+  <li><span class="who"><i>bridge</i> → bank</span><span>The bridge's poll succeeds and it receives an Account Token. It keeps it encrypted. Any later bank call also finishes a sign-in approved since the last one.</span></li>
+  <li><span class="who">Claude → <i>bridge</i> → bank</span><span>Reads (<code>list_accounts</code>, <code>list_transactions</code>) run with the Account Token. Balances and transactions are separate scopes.</span></li>
+</ol>
+<p><code>bank_sign_out</code> revokes the token and calls the bank's internal <code>end_all_sign_ins</code>, which ends every sign-in that agent has for that person.</p>
+
+<h2 id="pay">Paying</h2>
+<p>An agent can only propose a payment. A proposal becomes a payment only by a confirmation the bank accepts, and which one it accepts depends on whether the customer has a phone.</p>
+<ol class="flow">
+  <li><span class="who">Claude → <i>bridge</i> → bank</span><span><code>pay_payee</code> or a transfer between the customer's own accounts proposes an operation. Payees must already exist: an agent cannot add one.</span></li>
+  <li><span class="who"><i>bank</i> decides</span><span>The approval policy checks whether this customer has an active phone, and the amount.</span></li>
+</ol>
+<div class="tablewrap"><table>
+<thead><tr><th>Customer has</th><th>Amount</th><th>Who may confirm</th></tr></thead>
+<tbody>
+<tr><td>an enrolled phone</td><td>any</td><td>The phone only. The bank refuses the agent's confirmation with <code>user_approval_required</code>, even if it claims the customer approved. The website's approval page no longer approves either.</td></tr>
+<tr><td>no phone</td><td>up to R500 to a saved payee, or up to R5 000 between own accounts</td><td>The agent, after the customer says yes in chat (<code>bank_confirm_payment</code>, sent as a standing permission). The bank applies the limit itself.</td></tr>
+<tr><td>no phone</td><td>above those limits</td><td>The customer, on the bank's approval page, from the link in the proposal.</td></tr>
+</tbody></table></div>
+<p>A payment moves money once: the operation id is the idempotency key, and funds are checked again when it is performed. A proposal lapses after 15 minutes. Proposing reveals whether an account could cover an amount, which the scope's description tells the customer when they grant it.</p>
+
+<h2 id="phone">The phone</h2>
+<h3>Enrolling</h3>
+<ol class="flow">
+  <li><span class="who">customer's browser</span><span>Signed in at the bank, the customer opens Account and presses "Add my phone". The page shows a QR code for <code>protea://enroll?o=…&amp;e=…&amp;s=…</code>, valid for 5 minutes and usable once.</span></li>
+  <li><span class="who">phone → <i>bank</i></span><span>The app scans it, makes two P-256 keys in its secure hardware, and posts both public keys to <code>/authenticator/enroll</code>. The bank answers with a device id and a six-digit code.</span></li>
+  <li><span class="who">customer</span><span>Compares the code on the phone with the one on the website and presses "The codes match", within 5 minutes. The device is inactive until then. Every enrollment failure is the same <code>400</code>, so a guess learns nothing.</span></li>
+</ol>
+<h3>Approving a payment</h3>
+<ol class="flow">
+  <li><span class="who">phone → <i>bank</i></span><span>The app lists waiting operations. Every request is signed with the <strong>auth key</strong> over method, host, path, time, a one-time nonce and the body's hash. The bank checks the signature before it accepts the nonce.</span></li>
+  <li><span class="who">phone</span><span>Shows the agent's name, the summary, the payee and the amount. It recomputes the hash of exactly what it shows and refuses to sign if it differs from the one the bank sent.</span></li>
+  <li><span class="who">customer → phone</span><span>Fingerprint. This unlocks the <strong>approval key</strong>, which signs the origin, device, operation, revision, terms hash, nonce and time.</span></li>
+  <li><span class="who">phone → <i>bank</i></span><span>The bank verifies the approval signature for exactly that revision and those terms, then performs the payment. A changed proposal gets <code>terms_changed</code> and must be shown again. Declining needs no fingerprint.</span></li>
+</ol>
+<p>One device per customer. Replacing it is a staff action in the console. The full wire format is in <a href="#docs">AUTHENTICATOR.md</a>.</p>
+
+<h2 id="trust">What protects what</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>Threat</th><th>What stops it</th></tr></thead>
+<tbody>
+<tr><td>An agent pays without the customer</td><td>With a phone, the bank refuses any confirmation not signed by the approval key. Without one, limits apply and larger payments need the customer's own approval.</td></tr>
+<tr><td>A stolen agent token</td><td>Tokens are bound to a Session Key (DPoP). A token alone cannot be replayed from another machine.</td></tr>
+<tr><td>One person's agent acting for another</td><td>The bridge's token names one Curity <code>sub</code>; each person has their own Poppy user id and encrypted state. Another customer's account looks like no account.</td></tr>
+<tr><td>A replayed phone request</td><td>Each request has a time (within 2 minutes) and a nonce the bank remembers.</td></tr>
+<tr><td>Tricking the customer into approving a different payment</td><td>The approval signs a hash of the terms; the phone computes it from what it displays.</td></tr>
+<tr><td>Someone else's phone enrolled to a customer</td><td>QR is short-lived and single use; the customer must compare a code in their own signed-in browser.</td></tr>
+<tr><td>A pretend staff member</td><td>Staff are the emails in <code>STAFF_EMAILS</code>, signed in through Curity. An emergency key exists and can only look at phones.</td></tr>
+<tr><td>A site loaded in a frame or cached</td><td><code>frame-ancestors 'none'</code> and <code>no-store</code> on account pages.</td></tr>
+</tbody></table></div>
+
+<h2 id="data">Data and state</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>Data</th><th>Where</th><th>Survives a restart</th></tr></thead>
+<tbody>
+<tr><td>Customers, accounts, payees, transactions</td><td>Bank Postgres</td><td><span class="pill done">yes</span></td></tr>
+<tr><td>Phones, enrollments, nonces, approvals</td><td>Bank Postgres (<code>nova_devices</code>, <code>nova_device_enrollments</code>, <code>nova_device_nonces</code>, <code>nova_approvals</code>)</td><td><span class="pill done">yes</span></td></tr>
+<tr><td>Each person's agent sign-in</td><td>Bridge Postgres, encrypted with <code>STATE_KEY</code></td><td><span class="pill done">yes</span></td></tr>
+<tr><td>Poppy's own state: connected agents, operations, conversations</td><td>Bank memory</td><td><span class="pill open">no</span> a bank restart ends every agent connection and pending proposal</td></tr>
+<tr><td>Blocklist, agent feedback, staff audit log</td><td>Bank memory</td><td><span class="pill open">no</span> the blocklist returns to <code>BLOCKED_CLIENTS</code></td></tr>
+</tbody></table></div>
+
+<h2 id="ops">Configuration</h2>
+<h3>Bank (<code>nova-bank</code>)</h3>
+<div class="tablewrap"><table>
+<thead><tr><th>Variable</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td>POPPYSEED_BASE_URL, POPPYSEED_SECRET</td><td>The site's address and the 32+ character sealing secret. Required in production.</td></tr>
+<tr><td>DATABASE_URL</td><td>Postgres. Required when deployed.</td></tr>
+<tr><td>OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_REDIRECT_URI</td><td>Curity sign-in. The site refuses to start on https without them.</td></tr>
+<tr><td>OIDC_ENTRY</td><td>Where to read Curity's discovery when it serves the same issuer under another host (<code>https://idp.proteabank.co.za/…</code>).</td></tr>
+<tr><td>STAFF_EMAILS</td><td>Emails allowed into the staff console.</td></tr>
+<tr><td>STAFF_TRUST_UNVERIFIED</td><td>Temporary: trusts a staff email that Curity marks unverified. See open items.</td></tr>
+<tr><td>POPPY_STAFF_KEY</td><td>Emergency staff key (view only for phones).</td></tr>
+<tr><td>BLOCKED_CLIENTS</td><td>Agent <code>client_id</code>s to refuse.</td></tr>
+<tr><td>POPPYSEED_TEST_HOOKS</td><td>Conformance hooks. Never set on a service with real customers.</td></tr>
+</tbody></table></div>
+<h3>Bridge (<code>protea-bridge</code>)</h3>
+<div class="tablewrap"><table>
+<thead><tr><th>Variable</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td>PUBLIC_URL, PORT</td><td>The bridge's address (<code>https://mcp.proteabank.co.za</code>).</td></tr>
+<tr><td>DATABASE_URL, STATE_KEY</td><td>Where sign-in state is stored, and the 32-byte key that encrypts it.</td></tr>
+<tr><td>AGENT_KEYS</td><td>The agent's private keys (the JSON of <code>keys.json</code>). Secret.</td></tr>
+<tr><td>CURITY_ISSUER, CURITY_ENTRY, CURITY_CLIENT_ID, CURITY_CLIENT_SECRET</td><td>Logging the bridge's users in at Curity.</td></tr>
+<tr><td>BANK_ORIGIN</td><td><code>https://app.proteabank.co.za</code>.</td></tr>
+<tr><td>ALLOW_PAYMENTS</td><td><code>0</code> turns payments off.</td></tr>
+<tr><td>RAILPACK_START_CMD</td><td>Starts the hosted entry point, not the local one.</td></tr>
+</tbody></table></div>
+
+<h2 id="open">Open items</h2>
+<p>These are known and deliberate or not yet done. None is hidden by the live system.</p>
+<div class="tablewrap"><table>
+<thead><tr><th>Item</th><th>State</th></tr></thead>
+<tbody>
+<tr><td>Android app</td><td><span class="pill open">to build</span> Bank side done and deployed. Not yet tried against the live bank with a real enrollment.</td></tr>
+<tr><td>Enrolling needs no fresh Curity sign-in</td><td><span class="pill open">by choice</span> A stolen signed-in browser session could enroll a phone. The code comparison still has to happen in that browser.</td></tr>
+<tr><td>No rate limit on failed device signatures</td><td><span class="pill open">open</span></td></tr>
+<tr><td><code>STAFF_TRUST_UNVERIFIED</code></td><td><span class="pill open">temporary</span> Remove once Curity verifies emails or self-registration is closed.</td></tr>
+<tr><td>Poppy's store is in memory</td><td><span class="pill open">open</span> Needs Postgres storage to survive restarts or run several instances.</td></tr>
+<tr><td>Cloudflare SSL mode</td><td><span class="pill open">open</span> Full; should be Full (strict).</td></tr>
+<tr><td>Old pieces to remove</td><td><span class="pill open">cleanup</span> The old Railway domains, the old Curity client for the previous bridge address, the Railway <code>protea-agent</code> service, and the local Claude Desktop connector <code>protea-bank</code> (it uses the old agent identity and no longer signs in).</td></tr>
+<tr><td>Older unit tests without mutants</td><td><span class="pill open">backlog</span> About 136 in <code>nova</code>, <code>oidc-login</code> and the Inspector fail <code>pnpm mutants</code>. The release gate (<code>--published</code>) covers the package; CI's full run is red on <code>master</code>.</td></tr>
+<tr><td><code>poppyseed</code> 0.3.2 on npm</td><td><span class="pill open">blocked</span> The npm package is owned by its original author; the bridge vendors the tarball.</td></tr>
+<tr><td>Postgres row locks</td><td><span class="pill open">untested</span> The in-process test database serialises transactions, so locking is reasoned about, not proved.</td></tr>
+</tbody></table></div>
+
+<h2 id="docs">Documents</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>File</th><th>Covers</th></tr></thead>
+<tbody>
+<tr><td><code>nova/README.md</code></td><td>The bank: services, sign-in, blocking, conformance, decisions, the phone.</td></tr>
+<tr><td><code>nova/AUTHENTICATOR.md</code></td><td>The wire protocol an Android app must follow: keys, enrollment, signing, approvals.</td></tr>
+<tr><td><code>nova/DEMO.md</code></td><td>A 15-minute script using the Inspector.</td></tr>
+<tr><td><code>nova/ARCHITECTURE.html</code></td><td>This page.</td></tr>
+<tr><td><code>AGENTS.md</code></td><td>Repository rules: gates, mutants, security check.</td></tr>
+<tr><td>bridge <code>README.md</code></td><td>The bridge: tools, hosting, environment, the vendored dependency.</td></tr>
+</tbody></table></div>
+
+<footer>Protea Bank is a demonstration. Update this page whenever a component, address, tool or approval rule changes.</footer>
+</main>
+</div>
+</body>
+</html>
