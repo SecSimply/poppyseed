@@ -2,7 +2,7 @@
 
 A customer enrolls a phone once. From then on, every payment or transfer an agent asks for waits for that phone, which shows what is being asked, takes the customer's fingerprint and signs an approval. The bank performs it only for a valid signature. The agent cannot approve (the bank refuses its confirmation even when it claims the customer's approval), and neither can the bank's website.
 
-This is the bank's own protocol, not part of the Personal Agent Protocol. The code is `lib/authenticator.ts` (routes), `lib/device-auth.ts` (signatures) and `lib/devices.ts` (the store). `scripts/fake-phone.ts` is a phone on the command line that follows everything below.
+This is the bank's own protocol, not part of the Personal Agent Protocol. The code is `lib/authenticator.ts` (routes), `lib/device-auth.ts` (signatures) and `lib/devices.ts` (the store). `scripts/fake-phone.ts` is a phone on the command line that follows everything below, and `protea-app/` is the Android app.
 
 ## Keys
 
@@ -110,6 +110,15 @@ A good approval is `200` with `{"operation": …}`; the bank performs the paymen
 ## Declining
 
 `POST /authenticator/operations/{id}/decline` with an empty body, signed with the auth key. It needs no fingerprint, because turning a payment down is always safe.
+
+## The app
+
+`protea-app/` (Kotlin, Jetpack Compose, minSdk 28) follows everything above. Its tests check it against `protea-app/app/src/test/resources/vectors.json`, which the bank writes from its own code (`scripts/authenticator-vectors.ts`): the canonical JSON, the terms hash, both signed texts and a signature. Run that script again after any change to `lib/device-auth.ts`.
+
+- **Where it looks:** while the app is open it asks for waiting operations every 5 seconds. There are no push messages, so a closed app sees nothing.
+- **What it refuses to do:** it signs only the hash it computes itself from the summary and terms on screen, and only when that equals the `terms_hash` the bank sent. It talks only to the origin in the QR code, over https, and shows that address before it enrolls.
+- **After a new fingerprint is added** to the phone, the approval key stops working for good. The app says so and offers to forget the phone; a staff member removes it at the bank and the customer enrolls again.
+- **No Google services are needed**: the QR scanner uses ML Kit's bundled model.
 
 ## Trying it without the app
 

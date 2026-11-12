@@ -106,7 +106,7 @@ footer { margin-top: 64px; font-size: 13px; color: var(--muted); border-top: 1px
 <ul>
   <li><strong>A bridge</strong> that makes Claude a Poppy agent. Claude talks MCP to the bridge; the bridge talks Poppy to the bank. Each person's agent sign-in is separate.</li>
   <li><strong>Curity</strong> as the identity provider for customers, staff, and the bridge's own users. The bank never holds a password.</li>
-  <li><strong>An authenticator</strong>: an enrolled phone that approves agent payments with a fingerprint. The bank's side is built and live; the Android app is the next piece.</li>
+  <li><strong>An authenticator</strong>: an enrolled phone that approves agent payments with a fingerprint. The bank's side is live, and the Android app (<code>protea-app/</code>) is built and installed by hand on a phone.</li>
 </ul>
 
 <h2 id="components">Components</h2>
@@ -120,7 +120,7 @@ footer { margin-top: 64px; font-size: 13px; color: var(--muted); border-top: 1px
 
   <rect class="box" x="20" y="30" width="200" height="90" rx="6"/><text class="t-title" x="36" y="56">Claude</text><text class="t-small" x="36" y="76">Desktop or claude.ai</text><text class="t-small" x="36" y="94">connector: mcp.proteabank.co.za</text>
   <rect class="box" x="20" y="190" width="200" height="80" rx="6"/><text class="t-title" x="36" y="216">Browser</text><text class="t-small" x="36" y="236">account page, approvals,</text><text class="t-small" x="36" y="252">staff console</text>
-  <rect class="todo" x="20" y="350" width="200" height="90" rx="6"/><text class="t-title" x="36" y="376">Protea app (Android)</text><text class="t-small" x="36" y="396">approves with a fingerprint</text><text class="t-small" x="36" y="412">to build; command-line stand-in</text><text class="t-small" x="36" y="428">exists today</text>
+  <rect class="box" x="20" y="350" width="200" height="90" rx="6"/><text class="t-title" x="36" y="376">Protea app (Android)</text><text class="t-small" x="36" y="396">approves with a fingerprint,</text><text class="t-small" x="36" y="412">sideloaded APK, checks the bank</text><text class="t-small" x="36" y="428">every 5 s while open</text>
 
   <rect class="box" x="380" y="30" width="200" height="90" rx="6"/><text class="t-title" x="396" y="56">Protea bridge</text><text class="t-small" x="396" y="76">MCP server + Poppy agent</text><text class="t-small" x="396" y="94">Railway, mcp.proteabank.co.za</text>
   <rect class="box" x="380" y="150" width="200" height="70" rx="6"/><text class="t-title" x="396" y="176">Agent identity</text><text class="t-small" x="396" y="196">Cloudflare Worker, client.json,</text><text class="t-small" x="396" y="210">jwks.json, logo.png</text>
@@ -143,7 +143,7 @@ footer { margin-top: 64px; font-size: 13px; color: var(--muted); border-top: 1px
   <path class="arrow" d="M740,340 L580,340"/><text class="t-num" x="650" y="332">6</text>
   <path class="arrow-a" d="M220,415 L670,415 L670,270 L740,270"/><text class="t-num" x="440" y="407">7</text>
 </svg>
-<figcaption>Dashed box: not built yet. The crimson arrows carry the two things the customer does not see: the agent's calls (2) and the phone's signed approval (7).</figcaption>
+<figcaption>The crimson arrows carry the two things the customer does not see: the agent's calls (2) and the phone's signed approval (7).</figcaption>
 </figure>
 <ol class="legend">
   <li><span>Claude calls the bridge over MCP (HTTPS, OAuth 2.1). Claude registers itself, and the customer logs in at Curity once to connect.</span></li>
@@ -165,6 +165,7 @@ footer { margin-top: 64px; font-size: 13px; color: var(--muted); border-top: 1px
 <tr><td>Agent identity</td><td>Three static files at <code>agent.proteabank.co.za</code>. Its address is the agent's <code>client_id</code>; changing it makes the bank treat the agent as new.</td><td>bridge repo <code>site/</code>, built by <code>worker/build.mjs</code></td></tr>
 <tr><td>Curity</td><td>Identity provider. Its issuer name is still <code>idp.fluffycloud.co.za/…</code>, answered under each hostname; the bank and bridge read discovery at the proteabank entry address and still check the issuer.</td><td>external; settings in <code>nova/README.md</code></td></tr>
 <tr><td>Inspector</td><td>A tool that runs a real test agent against the bank and shows every request. Used for the demo script and conformance.</td><td><code>inspector/</code>, <code>nova/DEMO.md</code></td></tr>
+<tr><td>Protea app</td><td>An Android app (Kotlin, Compose). Scans the enrollment QR, keeps two keys in the Keystore, lists waiting payments while it is open, and signs an approval after the fingerprint. No push messages and no Google services needed.</td><td><code>protea-app/</code></td></tr>
 <tr><td>Fake phone</td><td>A command-line phone that follows the authenticator protocol exactly. Stands in until the Android app exists.</td><td><code>nova/scripts/fake-phone.ts</code></td></tr>
 </tbody></table></div>
 
@@ -227,7 +228,7 @@ footer { margin-top: 64px; font-size: 13px; color: var(--muted); border-top: 1px
   <li><span class="who">customer → phone</span><span>Fingerprint. This unlocks the <strong>approval key</strong>, which signs the origin, device, operation, revision, terms hash, nonce and time.</span></li>
   <li><span class="who">phone → <i>bank</i></span><span>The bank verifies the approval signature for exactly that revision and those terms, then performs the payment. A changed proposal gets <code>terms_changed</code> and must be shown again. Declining needs no fingerprint.</span></li>
 </ol>
-<p>One device per customer. Replacing it is a staff action in the console. The full wire format is in <a href="#docs">AUTHENTICATOR.md</a>.</p>
+<p>One device per customer. Replacing it is a staff action in the console. The full wire format is in <a href="#docs">AUTHENTICATOR.md</a>. The app checks itself against test vectors the bank writes from its own code, so the two cannot disagree about a byte without a test failing.</p>
 
 <h2 id="trust">What protects what</h2>
 <div class="tablewrap"><table>
@@ -287,7 +288,7 @@ footer { margin-top: 64px; font-size: 13px; color: var(--muted); border-top: 1px
 <div class="tablewrap"><table>
 <thead><tr><th>Item</th><th>State</th></tr></thead>
 <tbody>
-<tr><td>Android app</td><td><span class="pill open">to build</span> Bank side done and deployed. Not yet tried against the live bank with a real enrollment.</td></tr>
+<tr><td>Android app</td><td><span class="pill done">built</span> Enrolled and used against the live bank. Installed by hand with a self-made signing key. No push messages: it only looks for payments while open. No device attestation yet.</td></tr>
 <tr><td>Enrolling needs no fresh Curity sign-in</td><td><span class="pill open">by choice</span> A stolen signed-in browser session could enroll a phone. The code comparison still has to happen in that browser.</td></tr>
 <tr><td>No rate limit on failed device signatures</td><td><span class="pill open">open</span></td></tr>
 <tr><td><code>STAFF_TRUST_UNVERIFIED</code></td><td><span class="pill open">temporary</span> Remove once Curity verifies emails or self-registration is closed.</td></tr>
@@ -306,6 +307,7 @@ footer { margin-top: 64px; font-size: 13px; color: var(--muted); border-top: 1px
 <tr><td><code>nova/README.md</code></td><td>The bank: services, sign-in, blocking, conformance, decisions, the phone.</td></tr>
 <tr><td><code>nova/AUTHENTICATOR.md</code></td><td>The wire protocol an Android app must follow: keys, enrollment, signing, approvals.</td></tr>
 <tr><td><code>nova/DEMO.md</code></td><td>A 15-minute script using the Inspector.</td></tr>
+<tr><td><code>protea-app/README.md</code></td><td>The Android app: building, testing against the bank's vectors, the release key, installing.</td></tr>
 <tr><td><code>nova/ARCHITECTURE.html</code></td><td>This page.</td></tr>
 <tr><td><code>AGENTS.md</code></td><td>Repository rules: gates, mutants, security check.</td></tr>
 <tr><td>bridge <code>README.md</code></td><td>The bridge: tools, hosting, environment, the vendored dependency.</td></tr>

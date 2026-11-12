@@ -136,7 +136,7 @@ The demo customer Thandi Nkosi has the saved payees `pye_thandi_rent`, `pye_than
 
 ## The Protea app: approving agent payments on a phone
 
-A customer can enroll a phone (Account → Add my phone, then scan the QR code in the app). Once one is enrolled, **every** payment or transfer an agent asks for waits for that phone: the app shows it, the customer confirms with a fingerprint, and the phone signs the approval. The agent's own confirmation is refused, even when it claims the customer's approval, and the bank's approval page no longer approves for that customer. The wire format is in [AUTHENTICATOR.md](AUTHENTICATOR.md); `scripts/fake-phone.ts` is a phone on the command line.
+A customer can enroll a phone (Account → Add my phone, then scan the QR code in the app). Once one is enrolled, **every** payment or transfer an agent asks for waits for that phone: the app shows it, the customer confirms with a fingerprint, and the phone signs the approval. The agent's own confirmation is refused, even when it claims the customer's approval, and the bank's approval page no longer approves for that customer. The wire format is in [AUTHENTICATOR.md](AUTHENTICATOR.md). The Android app is `../protea-app` (see its README for building and installing it by hand); `scripts/fake-phone.ts` is a phone on the command line.
 
 - A customer has one device. Replacing it is a staff action: `/staff` → *Customers' phones* (Curity staff sign-in; the emergency key can only look).
 - Enrolling needs the customer's signed-in browser, and the customer comparing a code on the phone and the website. It does not ask for a new Curity sign-in.
