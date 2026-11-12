@@ -103,7 +103,7 @@ PROTEA-APPROVE-V1
 <approval time>
 ```
 
-The **terms hash** is what the phone computes from the `summary` and `terms` it is showing, not the `terms_hash` field the bank sent (compare them, and refuse to sign if they differ): `base64url(SHA-256(canonical({"summary": summary, "terms": terms})))`. `canonical` is JSON with every object's keys sorted by Unicode code point, at every level, and no spaces; strings, numbers and other values are written as `JSON.stringify` writes them (control characters as `\b \f \n \r \t` or `\u00xx` in lower case, `"` and `\` escaped, everything else as UTF-8).
+The **terms hash** is what the phone computes from the `summary` and `terms` it is showing, not the `terms_hash` field the bank sent (compare them, and refuse to sign if they differ): `base64url(SHA-256(canonical({"summary": summary, "terms": terms})))`. `canonical` is JSON with every object's keys sorted by UTF-16 code unit (JavaScript's default sort), at every level, and no spaces; strings, numbers and other values are written as `JSON.stringify` writes them (control characters as `\b \f \n \r \t` or `\u00xx` in lower case, `"` and `\` escaped, everything else as UTF-8).
 
 A good approval is `200` with `{"operation": …}`; the bank performs the payment at once. Refusals: `401` (the request is not signed by an enrolled device, the clock is off, or the request was already used), `403 invalid_approval` (the signature is not the approval key's for exactly this operation, revision and terms), `403 replayed_approval`, `404 operation_not_found`, `409 not_open` (already decided or expired) and `409 terms_changed` (a newer revision exists: read it again and ask the customer again).
 

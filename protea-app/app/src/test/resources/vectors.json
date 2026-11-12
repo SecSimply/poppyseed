@@ -1,0 +1,136 @@
+{
+  "canonical": [
+    {
+      "input": {
+        "a": 1
+      },
+      "canonical": "{\"a\":1}"
+    },
+    {
+      "input": {
+        "b": 2,
+        "a": 1
+      },
+      "canonical": "{\"a\":1,\"b\":2}"
+    },
+    {
+      "input": {
+        "z": {
+          "y": [
+            3,
+            {
+              "b": true,
+              "a": null
+            }
+          ],
+          "x": "s"
+        },
+        "a": []
+      },
+      "canonical": "{\"a\":[],\"z\":{\"x\":\"s\",\"y\":[3,{\"a\":null,\"b\":true}]}}"
+    },
+    {
+      "input": {
+        "text": "quote \" backslash \\ tab \t newline \n return \r bell \u0007 unit \u001f del "
+      },
+      "canonical": "{\"text\":\"quote \\\" backslash \\\\ tab \\t newline \\n return \\r bell \\u0007 unit \\u001f del \"}"
+    },
+    {
+      "input": {
+        "text": "Ünïcode ñ 日本語 😀 and     line separators"
+      },
+      "canonical": "{\"text\":\"Ünïcode ñ 日本語 😀 and     line separators\"}"
+    },
+    {
+      "input": {
+        "κλειδί": 1,
+        "key": 2,
+        "Key": 3,
+        "😀": 4,
+        "～": 5
+      },
+      "canonical": "{\"Key\":3,\"key\":2,\"κλειδί\":1,\"😀\":4,\"～\":5}"
+    },
+    {
+      "input": {
+        "big": 9007199254740991,
+        "neg": -42,
+        "zero": 0,
+        "flag": false
+      },
+      "canonical": "{\"big\":9007199254740991,\"flag\":false,\"neg\":-42,\"zero\":0}"
+    }
+  ],
+  "operations": [
+    {
+      "summary": "Pay R10,00 to Boland Power (account ending 7741) from Everyday Cheque Account ••4821. The money leaves today and can't be recalled.",
+      "terms": {
+        "payee_id": "pye_thandi_energy",
+        "from_account_id": "acc_thandi_everyday",
+        "amount": {
+          "amount": "10.00",
+          "currency": "ZAR"
+        }
+      },
+      "hash": "fJi-y8IFbGkNBL050ENCLZ5S8uQ35NYhjffPZJdDFt4"
+    },
+    {
+      "summary": "Transfer R1 500,00 to \"Saver\" – with a “note” and ünïcode 😀",
+      "terms": {
+        "to_account_id": "acc_thandi_saver",
+        "from_account_id": "acc_thandi_everyday",
+        "amount": {
+          "currency": "ZAR",
+          "amount": "1500.00"
+        },
+        "reference": "Rent \\ Oct\n"
+      },
+      "hash": "Zkkag0csYFrPkirDi0biJgE79j9cDpsx918T6rXoV78"
+    }
+  ],
+  "requests": [
+    {
+      "method": "get",
+      "host": "app.proteabank.co.za",
+      "target": "/authenticator/operations",
+      "time": "1731254400000",
+      "nonce": "bm9uY2UtMQ",
+      "body": "",
+      "bodyHash": "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU",
+      "message": "PROTEA-DEVICE-V1\nGET\napp.proteabank.co.za\n/authenticator/operations\n1731254400000\nbm9uY2UtMQ\n47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU"
+    },
+    {
+      "method": "POST",
+      "host": "app.proteabank.co.za",
+      "target": "/authenticator/operations/op_abc/approve?x=1",
+      "time": "1731254400123",
+      "nonce": "bm9uY2UtMg",
+      "body": "{\"revision\":1,\"approval\":{\"signature\":\"s\",\"nonce\":\"n\",\"time\":\"1731254400000\"}}",
+      "bodyHash": "zek0sBhlmQQDz4wh5aQ39bwKt4R1EihKQtYsyza_gBM",
+      "message": "PROTEA-DEVICE-V1\nPOST\napp.proteabank.co.za\n/authenticator/operations/op_abc/approve?x=1\n1731254400123\nbm9uY2UtMg\nzek0sBhlmQQDz4wh5aQ39bwKt4R1EihKQtYsyza_gBM"
+    }
+  ],
+  "approvals": [
+    {
+      "origin": "https://app.proteabank.co.za",
+      "deviceId": "dev_abc",
+      "operationId": "op_xyz",
+      "revision": 2,
+      "termsHash": "fJi-y8IFbGkNBL050ENCLZ5S8uQ35NYhjffPZJdDFt4",
+      "nonce": "YXBwcm92YWw",
+      "time": "1731254400000",
+      "message": "PROTEA-APPROVE-V1\nhttps://app.proteabank.co.za\ndev_abc\nop_xyz\n2\nfJi-y8IFbGkNBL050ENCLZ5S8uQ35NYhjffPZJdDFt4\nYXBwcm92YWw\n1731254400000"
+    }
+  ],
+  "signatures": {
+    "jwk": {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "0LJUYjH9U5P7ZX_jTdc1RNV6JelCV-yMwlILkWIaotg",
+      "y": "w0Em42hufxHdfCEi1TjGyUECh9ubAHFcDPUOoykFR6Q"
+    },
+    "message": "PROTEA-DEVICE-V1\nPOST\napp.proteabank.co.za\n/authenticator/operations/op_abc/approve?x=1\n1731254400123\nbm9uY2UtMg\nzek0sBhlmQQDz4wh5aQ39bwKt4R1EihKQtYsyza_gBM",
+    "der": "MEUCIAXruNUJ9Vwo1MoLyc-WUsgL2Y79IGSgLkEBo3I_TakZAiEAvznATpxWMhSPjf8fIcZRYMqILaW44y-XLJm0s0d-33M",
+    "raw": "xCRloJaAuezND9j5OPyP9dATcbeLTd2VnjwU9ZZSS-7dzxjKtmXV04Xp6k3D6NS_KshkFuflZ9gP3lcNYy0Spg"
+  }
+}
