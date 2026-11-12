@@ -131,7 +131,7 @@ footer { margin-top: 64px; font-size: 13px; color: var(--muted); border-top: 1px
   <rect class="box" x="756" y="66" width="188" height="70" rx="6"/><text class="t-title" x="768" y="90">Poppy API + tools</text><text class="t-small" x="768" y="108">/poppy/*, accounts, payments</text><text class="t-small" x="768" y="122">approval policy</text>
   <rect class="box" x="756" y="150" width="188" height="70" rx="6"/><text class="t-title" x="768" y="174">Website + staff</text><text class="t-small" x="768" y="192">consent, /account, /payments,</text><text class="t-small" x="768" y="206">/staff, QR enrollment</text>
   <rect class="box" x="756" y="234" width="188" height="70" rx="6"/><text class="t-title" x="768" y="258">Authenticator API</text><text class="t-small" x="768" y="276">/authenticator/*, signed</text><text class="t-small" x="768" y="290">device requests</text>
-  <text class="t-small" x="756" y="332">app.proteabank.co.za (Cloudflare)</text><text class="t-small" x="756" y="350">Railway service nova-bank</text>
+  <text class="t-small" x="756" y="332">sandbox.proteabank.co.za (Cloudflare)</text><text class="t-small" x="756" y="350">Railway service nova-bank</text>
   <rect class="box" x="740" y="410" width="220" height="56" rx="6"/><text class="t-title" x="756" y="434">Postgres</text><text class="t-small" x="756" y="452">customers, accounts, payees, devices</text>
   <path class="arrow" d="M850,380 L850,410"/>
 
@@ -173,7 +173,7 @@ footer { margin-top: 64px; font-size: 13px; color: var(--muted); border-top: 1px
 <div class="tablewrap"><table>
 <thead><tr><th>Address</th><th>What answers</th><th>Notes</th></tr></thead>
 <tbody>
-<tr><td>app.proteabank.co.za</td><td>Railway <code>nova-bank</code>, through Cloudflare</td><td>GitHub-linked: a push to <code>master</code> deploys. SSL mode is Full, not yet Full (strict).</td></tr>
+<tr><td>sandbox.proteabank.co.za</td><td>Railway <code>nova-bank</code>, through Cloudflare</td><td>GitHub-linked: a push to <code>master</code> deploys. SSL mode is Full, not yet Full (strict). Named <code>sandbox</code> on purpose: the bank is fictional, and the front page says so. It was <code>app.proteabank.co.za</code> until 12 November 2026.</td></tr>
 <tr><td>mcp.proteabank.co.za</td><td>Railway <code>protea-bridge</code></td><td>DNS only, not proxied. GitHub-linked. MCP at <code>/mcp</code>, health at <code>/healthz</code>, icon at <code>/favicon.ico</code>.</td></tr>
 <tr><td>agent.proteabank.co.za</td><td>Cloudflare Worker <code>protea-agent</code></td><td>Uploaded through the Cloudflare API, not by a push. The Railway service of the same name is superseded.</td></tr>
 <tr><td>idp.proteabank.co.za</td><td>Curity, through a Cloudflare tunnel</td><td>Entry path for sign-in. The issuer in tokens is unchanged.</td></tr>
@@ -278,7 +278,7 @@ footer { margin-top: 64px; font-size: 13px; color: var(--muted); border-top: 1px
 <tr><td>DATABASE_URL, STATE_KEY</td><td>Where sign-in state is stored, and the 32-byte key that encrypts it.</td></tr>
 <tr><td>AGENT_KEYS</td><td>The agent's private keys (the JSON of <code>keys.json</code>). Secret.</td></tr>
 <tr><td>CURITY_ISSUER, CURITY_ENTRY, CURITY_CLIENT_ID, CURITY_CLIENT_SECRET</td><td>Logging the bridge's users in at Curity.</td></tr>
-<tr><td>BANK_ORIGIN</td><td><code>https://app.proteabank.co.za</code>.</td></tr>
+<tr><td>BANK_ORIGIN</td><td><code>https://sandbox.proteabank.co.za</code>.</td></tr>
 <tr><td>ALLOW_PAYMENTS</td><td><code>0</code> turns payments off.</td></tr>
 <tr><td>RAILPACK_START_CMD</td><td>Starts the hosted entry point, not the local one.</td></tr>
 </tbody></table></div>
@@ -294,7 +294,7 @@ footer { margin-top: 64px; font-size: 13px; color: var(--muted); border-top: 1px
 <tr><td><code>STAFF_TRUST_UNVERIFIED</code></td><td><span class="pill open">temporary</span> Remove once Curity verifies emails or self-registration is closed.</td></tr>
 <tr><td>Poppy's store is in memory</td><td><span class="pill open">open</span> Needs Postgres storage to survive restarts or run several instances.</td></tr>
 <tr><td>Cloudflare SSL mode</td><td><span class="pill open">open</span> Full; should be Full (strict).</td></tr>
-<tr><td>Old pieces to remove</td><td><span class="pill open">cleanup</span> The old Railway domains, the old Curity client for the previous bridge address, the Railway <code>protea-agent</code> service, and the local Claude Desktop connector <code>protea-bank</code> (it uses the old agent identity and no longer signs in).</td></tr>
+<tr><td>Old pieces to remove</td><td><span class="pill open">cleanup</span> The bank's old address <code>app.proteabank.co.za</code> (Railway, Cloudflare, Curity redirect), the old Railway domains, the old Curity client for the previous bridge address, the Railway <code>protea-agent</code> service, and the local Claude Desktop connector <code>protea-bank</code> (it uses the old agent identity and no longer signs in).</td></tr>
 <tr><td>Older unit tests without mutants</td><td><span class="pill open">backlog</span> About 136 in <code>nova</code>, <code>oidc-login</code> and the Inspector fail <code>pnpm mutants</code>. The release gate (<code>--published</code>) covers the package; CI's full run is red on <code>master</code>.</td></tr>
 <tr><td><code>poppyseed</code> 0.3.2 on npm</td><td><span class="pill open">blocked</span> The npm package is owned by its original author; the bridge vendors the tarball.</td></tr>
 <tr><td>Postgres row locks</td><td><span class="pill open">untested</span> The in-process test database serialises transactions, so locking is reasoned about, not proved.</td></tr>

@@ -20,7 +20,7 @@ export default function Home() {
 		<main>
 			<header className="hero home">
 				<div className="bloom"><ProteaMark size={300} /></div>
-				<p className="kicker">Agent-ready banking · Paarl, South Africa</p>
+				<p className="kicker">Sandbox · Agent-ready banking · Paarl, South Africa</p>
 				<h1>Protea Bank</h1>
 				<p className="lede">Your money, in your hands or in your personal agent's. It can read our rates and find a branch without signing in. Anything that touches your money needs your sign-in, and anything large needs your own approval. Every amount is in rand.</p>
 			</header>

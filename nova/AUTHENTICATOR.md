@@ -32,7 +32,7 @@ Signatures are ECDSA with SHA-256, written base64url (no padding). The bank acce
    `name` is 1 to 40 characters. The keys must differ. The answer is `201`:
 
    ```json
-   { "device_id": "dev_…", "code": "123456", "origin": "https://app.proteabank.co.za", "customer": "Thandi Nkosi" }
+   { "device_id": "dev_…", "code": "123456", "origin": "https://sandbox.proteabank.co.za", "customer": "Thandi Nkosi" }
    ```
 
    Every failure (a wrong or spent secret, an expired enrollment, a customer who already has a device) is the same `400 invalid_enrollment`, so a bad guess learns nothing.
@@ -57,7 +57,7 @@ The signed text is these seven lines joined by `\n`, with no final newline:
 ```
 PROTEA-DEVICE-V1
 <METHOD, upper case>
-<the bank's host, such as app.proteabank.co.za>
+<the bank's host, such as sandbox.proteabank.co.za>
 <path and query exactly as sent, such as /authenticator/operations>
 <x-device-time>
 <x-device-nonce>
@@ -94,7 +94,7 @@ The approval is a **second signature, made with the approval key after the finge
 
 ```
 PROTEA-APPROVE-V1
-<the bank's origin, such as https://app.proteabank.co.za>
+<the bank's origin, such as https://sandbox.proteabank.co.za>
 <device_id>
 <operation_id>
 <revision>

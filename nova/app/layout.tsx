@@ -26,7 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 				<link rel="alternate" type="application/json" href="/.well-known/poppy.json" title="Personal Agent Protocol" />
 			</head>
 			<body>
-				<p className="demo-banner">Protea Bank is fictional and for demonstration only. No real money, accounts or people.</p>
+				<p className="demo-banner">This is a sandbox. Protea Bank is fictional and for demonstration only: the money, accounts and people are test data, and nothing here is real.</p>
 				<div className="ribbon" aria-hidden="true" />
 				<nav className="top">
 					<div className="wrap">
