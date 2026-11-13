@@ -52,6 +52,8 @@ Each line is a rule the code must keep. For each one the diff touches, find the 
 - Outbound fetches of agent-supplied URLs go through `safe-fetch.ts` (HTTPS only, plus the connect-time address check).
 - Request bodies are parsed with `strictJson` and validated at the boundary. Lengths have limits.
 - Errors leave through `PoppyError`; a tool's internal error is reported as "tool failed" and never echoed.
+- A value from a browser or an agent that goes into a path or query of a request to another service (the bank site's calls to the device auth service carry its admin key) is first checked to be an id of plain characters (`ID` in `nova/lib/phone-signin.ts`). `encodeURIComponent` leaves `.` alone, so `..` would change the address the key is sent to.
+- A secret the server uses to call another service (`DEVICE_AUTH_ADMIN_KEY`) is read only by server modules, never imported by a `"use client"` file, never rendered, never in a URL, and never part of an error message.
 
 **Supply chain**
 - `pnpm audit` reports nothing. Overrides stay in `package.json` until the dependents are fixed.

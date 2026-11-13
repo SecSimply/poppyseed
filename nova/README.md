@@ -52,7 +52,7 @@ Its details live in one file, `nova/proteabankoidc.md`, which holds the secret a
 
 **Where Curity is reached:** `OIDC_ENTRY` (https) is the address the bank reads Curity's discovery from, `https://idp.proteabank.co.za/oauth/v2/oauth-anonymous`, while Curity's issuer is still `https://idp.fluffycloud.co.za/oauth/v2/oauth-anonymous`. The bank requires the issuer in the document to equal `OIDC_ISSUER`. The document is cached for an hour, so restart the service after a change in Curity. Do not use Curity's *Issuer Override*: it breaks every endpoint address.
 
-**Other variables:** `STAFF_EMAILS`, `STAFF_TRUST_UNVERIFIED`, `OIDC_ENTRY`, and the existing `POPPYSEED_BASE_URL`, `POPPYSEED_SECRET` and `POPPY_STAFF_KEY`.
+**Other variables:** `STAFF_EMAILS`, `STAFF_TRUST_UNVERIFIED`, `OIDC_ENTRY`, `DEVICE_AUTH_URL`, `DEVICE_AUTH_ADMIN_KEY`, `DEVICE_AUTH_PUBLIC_URL` (see "Sign in with your phone"), and the existing `POPPYSEED_BASE_URL`, `POPPYSEED_SECRET` and `POPPY_STAFF_KEY`.
 
 `scripts/login-local.ts` proves all of it against a stand-in provider (the Inspector's `scripts/mock-oidc.ts`): a stranger, a customer, a login that is not a customer, a staff member, and an attacker who forges a cookie, replays a callback, signs someone out from another site, or tries an open redirect.
 
@@ -143,3 +143,22 @@ A customer can enroll a phone (Account → Add my phone, then scan the QR code i
 - A proposal made before a phone was enrolled stays an ordinary proposal until it lapses (15 minutes).
 - Postgres is required when deployed, as for customers and accounts: the tables `nova_devices`, `nova_device_enrollments`, `nova_device_nonces` and `nova_approvals` are created on first use.
 
+## Sign in with your phone: registering a phone with the device auth service
+
+The account page has a second phone section, **Sign in with your phone**. It is separate from the phone that approves payments above: it registers a phone with the *device auth service* (its own repository, `SecSimply/device-auth-service`), where a phone proves it holds a key kept in its secure hardware, unlocked by the fingerprint or face. The section appears only when the service is configured; without the three variables the page is as it was.
+
+| Variable | What it is |
+| --- | --- |
+| `DEVICE_AUTH_URL` | Where the server reaches the service. On Railway the private address, `http://device-auth.railway.internal:8080`. |
+| `DEVICE_AUTH_ADMIN_KEY` | The service's admin key. On Railway a reference to the service's own variable, so it is never copied. It stays on the server. |
+| `DEVICE_AUTH_PUBLIC_URL` | The address the phone reaches the service at (`https://da.proteabank.co.za`). It goes into the QR code. |
+
+How it works (`lib/phone-signin.ts`, `app/account/signin-phone/`):
+
+1. The customer, signed in in their own browser (an agent's browser is refused, as at the payees page), presses **Add a phone for sign-in**.
+2. The server asks the service for a one-time code for that customer (valid once, for ten minutes) and shows it as a QR code: `protea-device://enroll?o=<public address>&c=<code>`. The code is in that one answer only.
+3. The phone scans it, creates its key and registers with the service using the code. The service records the phone as that customer's.
+4. The page asks the bank every two seconds (`/account/signin-phone/status`) whether the code was used. The bank answers only for a code made for the customer asking.
+5. The section lists the customer's phones and lets them remove one; the service removes a phone only through its owner. A customer can have up to three.
+
+If the service cannot be reached the section says so and shows nothing it did not confirm. The Protea app does not yet scan this code: the link is shown under "Cannot scan?" for testing.

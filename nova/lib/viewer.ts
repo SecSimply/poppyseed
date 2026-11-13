@@ -38,3 +38,9 @@ export function mayRead(v: Viewer, scope: string): boolean {
 
 /** The customer whose pages these are, if any: the customer in their own browser, or the customer an agent's Session is signed in as. */
 export const customerOf = (v: Viewer) => (v.via === "site" || v.via === "agent" ? v.customer : undefined);
+
+/** The customer in their own browser, and no one else: an agent's browser, signed in or not, is refused. For actions that change what can sign in as the customer. */
+export async function ownBrowserCustomerId(): Promise<string | undefined> {
+	const who = await viewer();
+	return who.via === "site" ? who.customer.id : undefined;
+}
