@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -70,7 +69,7 @@ class MainActivity : FragmentActivity() {
 		super.onCreate(savedInstanceState)
 		pending = intent?.data?.toString()
 		val store = DeviceStore(this)
-		setContent { MaterialTheme { Column(Modifier.fillMaxSize().padding(20.dp).verticalScroll(rememberScrollState())) { App(store) } } }
+		setContent { ProteaTheme { Column(Modifier.fillMaxSize().padding(20.dp).verticalScroll(rememberScrollState())) { App(store) } } }
 	}
 
 	override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); pending = intent.data?.toString() }
