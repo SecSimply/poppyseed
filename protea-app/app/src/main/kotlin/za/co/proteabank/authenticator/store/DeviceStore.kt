@@ -17,3 +17,13 @@ class DeviceStore(context: Context) {
 	fun save(e: Enrolled) { prefs.edit().putString("origin", e.origin).putString("device_id", e.deviceId).putString("customer", e.customer).apply() }
 	fun clear() { prefs.edit().clear().apply() }
 }
+
+/** The phone's registration with the device auth service, for signing in to the website. Nothing secret. */
+data class SigninDevice(val origin: String, val deviceId: String)
+
+class SigninStore(context: Context) {
+	private val prefs = context.getSharedPreferences("protea_signin", Context.MODE_PRIVATE)
+	fun load(): SigninDevice? = SigninDevice(prefs.getString("origin", null) ?: return null, prefs.getString("device_id", null) ?: return null)
+	fun save(d: SigninDevice) { prefs.edit().putString("origin", d.origin).putString("device_id", d.deviceId).apply() }
+	fun clear() { prefs.edit().clear().apply() }
+}

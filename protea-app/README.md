@@ -40,6 +40,10 @@ The release key is **not in the repository**. It is read from `~/.protea-app/key
 
 A debug and a release build are signed by different keys, so installing one over the other also means enrolling again.
 
+## Signing in to the website
+
+The Account page also shows "Sign in with your phone", a QR code `protea-device://enroll?o=<service>&c=<code>` for the [device auth service](https://github.com/SecSimply/device-auth-service). The app registers a third Keystore key for it (fingerprint on every use): it gets a challenge, signs `DEVAUTH-V1\nregister\n…` after one fingerprint, and registers the public key with the one-time code. Signing in with that key is not built yet.
+
 ## Not done yet
 
 - Push messages (Firebase or another service), so a closed app can tell the customer something is waiting.

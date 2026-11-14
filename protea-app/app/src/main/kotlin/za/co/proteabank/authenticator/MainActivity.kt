@@ -49,11 +49,18 @@ import za.co.proteabank.authenticator.device.DeviceKeys
 import za.co.proteabank.authenticator.net.Http
 import za.co.proteabank.authenticator.store.DeviceStore
 import za.co.proteabank.authenticator.store.Enrolled
+import za.co.proteabank.authenticator.store.SigninDevice
+import za.co.proteabank.authenticator.store.SigninStore
+import za.co.proteabank.authenticator.core.SigninEnrollment
+import za.co.proteabank.authenticator.core.SigninLink
+import za.co.proteabank.authenticator.device.SigninSigned
+import za.co.proteabank.authenticator.device.SigninSigner
 
 private sealed interface Screen {
 	data object Home : Screen
 	data object Scanning : Screen
 	data class Confirm(val link: EnrollmentLink) : Screen
+	data class ConfirmSignin(val link: SigninLink) : Screen
 	data class Working(val what: String) : Screen
 	data class Code(val code: String, val customer: String, val enrolled: Enrolled) : Screen
 	data class Problem(val text: String) : Screen
@@ -69,14 +76,16 @@ class MainActivity : FragmentActivity() {
 		super.onCreate(savedInstanceState)
 		pending = intent?.data?.toString()
 		val store = DeviceStore(this)
-		setContent { ProteaTheme { Column(Modifier.fillMaxSize().padding(20.dp).verticalScroll(rememberScrollState())) { App(store) } } }
+		val signinStore = SigninStore(this)
+		setContent { ProteaTheme { Column(Modifier.fillMaxSize().padding(20.dp).verticalScroll(rememberScrollState())) { App(store, signinStore) } } }
 	}
 
 	override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); pending = intent.data?.toString() }
 
 	@Composable
-	private fun App(store: DeviceStore) {
+	private fun App(store: DeviceStore, signinStore: SigninStore) {
 		var enrolled by remember { mutableStateOf(store.load()) }
+		var signin by remember { mutableStateOf(signinStore.load()) }
 		var screen by remember { mutableStateOf<Screen>(Screen.Home) }
 		var status by remember { mutableStateOf<String?>(null) }
 		var ops by remember { mutableStateOf<List<PendingOperation>>(emptyList()) }
@@ -137,7 +146,12 @@ class MainActivity : FragmentActivity() {
 
 		fun take(text: String) {
 			val link = EnrollmentLink.parse(text)
-			screen = if (link == null) Screen.Problem("That is not a Protea enrollment code.") else Screen.Confirm(link)
+			val signinLink = SigninLink.parse(text)
+			screen = when {
+				link != null -> Screen.Confirm(link)
+				signinLink != null -> Screen.ConfirmSignin(signinLink)
+				else -> Screen.Problem("That is not a Protea enrollment code.")
+			}
 		}
 		pending?.let { p -> pending = null; take(p) }
 
@@ -155,9 +169,34 @@ class MainActivity : FragmentActivity() {
 			}
 		}
 
+		/** Registers the phone's sign-in key with the device auth service: a challenge, one fingerprint to sign it, then the registration with the code. */
+		fun enrollSignin(link: SigninLink) {
+			screen = Screen.Working("Registering this phone")
+			val deviceId = SigninEnrollment.newDeviceId()
+			val publicKey = try { DeviceKeys.createSignin() } catch (e: Exception) { return run { screen = Screen.Problem("Could not make the key: ${e.message}") } }
+			fun fail(text: String) { DeviceKeys.deleteSignin(); screen = Screen.Problem(text) }
+			Http.run({ Http.send(link.origin, "POST", "/v1/registrations/challenge", SigninEnrollment.challengeBody(deviceId)) }) { r ->
+				val c = r.getOrNull()?.let { SigninEnrollment.challenge(it.status, it.body) } ?: return@run fail("Could not get a challenge from the service.")
+				SigninSigner.sign(this, SigninEnrollment.message("register", c.value, deviceId, c.audience), "Register this phone", link.origin) { signed ->
+					when (signed) {
+						is SigninSigned.Signed -> {
+							screen = Screen.Working("Registering this phone")
+							Http.run({ Http.send(link.origin, "POST", "/v1/registrations", SigninEnrollment.body(c.value, deviceId, publicKey, signed.signature, Build.MODEL, link.code)) }) { done ->
+								val res = done.getOrNull()
+								if (res?.status == 201) { SigninDevice(link.origin, deviceId).let { signinStore.save(it); signin = it }; screen = Screen.Result("This phone is registered for signing in. Go back to the website.") }
+								else fail(res?.let { SigninEnrollment.refusal(it.status) } ?: "Could not reach the service.")
+							}
+						}
+						is SigninSigned.NotSigned -> fail("Not registered: ${signed.reason}.")
+						SigninSigned.KeyLost -> fail("The key stopped working. Scan a new code.")
+					}
+				}
+			}
+		}
+
 		when (val s = screen) {
-			Screen.Home -> if (enrolled != null) Inbox(enrolled!!, ops, status, onOpen = { screen = Screen.Detail(it) }, onRemove = { DeviceKeys.delete(); store.clear(); enrolled = null; ops = emptyList(); status = null })
-			else Home(onScan = {
+			Screen.Home -> if (enrolled != null) Inbox(enrolled!!, signin, ops, status, onOpen = { screen = Screen.Detail(it) }, onRemove = { DeviceKeys.delete(); store.clear(); enrolled = null; ops = emptyList(); status = null })
+			else Home(signin, onScan = {
 				if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) screen = Screen.Scanning else camera.launch(Manifest.permission.CAMERA)
 			}, onPaste = ::take)
 			Screen.Scanning -> {
@@ -174,6 +213,15 @@ class MainActivity : FragmentActivity() {
 				Text("Only continue if this is your bank's address and you opened the code yourself on its website.")
 				Spacer(Modifier.height(16.dp))
 				Button(onClick = { enroll(s.link) }) { Text("Continue") }
+				OutlinedButton(onClick = { screen = Screen.Home }) { Text("Cancel") }
+			}
+			is Screen.ConfirmSignin -> {
+				Text("Register this phone for signing in with", fontSize = 16.sp)
+				Text(s.link.origin, fontSize = 22.sp)
+				Spacer(Modifier.height(8.dp))
+				Text("Only continue if you opened this code yourself on your bank's website, under \"Sign in with your phone\". You will be asked for your fingerprint.")
+				Spacer(Modifier.height(16.dp))
+				Button(onClick = { enrollSignin(s.link) }) { Text("Continue") }
 				OutlinedButton(onClick = { screen = Screen.Home }) { Text("Cancel") }
 			}
 			is Screen.Working -> Text("${s.what}…")
@@ -204,10 +252,11 @@ class MainActivity : FragmentActivity() {
 	}
 
 	@Composable
-	private fun Home(onScan: () -> Unit, onPaste: (String) -> Unit) {
+	private fun Home(signin: SigninDevice?, onScan: () -> Unit, onPaste: (String) -> Unit) {
 		var link by remember { mutableStateOf("") }
 		Text("Protea", fontSize = 28.sp)
 		Spacer(Modifier.height(8.dp))
+		signin?.let { Text("Registered for signing in with ${it.origin}.", fontSize = 13.sp); Spacer(Modifier.height(8.dp)) }
 		Text("This phone is not set up. On the bank's website, sign in, open Account, press \"Add my phone\", and scan the code.")
 		Spacer(Modifier.height(16.dp))
 		Button(onClick = onScan) { Text("Scan the code") }
@@ -217,9 +266,10 @@ class MainActivity : FragmentActivity() {
 	}
 
 	@Composable
-	private fun Inbox(e: Enrolled, ops: List<PendingOperation>, status: String?, onOpen: (PendingOperation) -> Unit, onRemove: () -> Unit) {
+	private fun Inbox(e: Enrolled, signin: SigninDevice?, ops: List<PendingOperation>, status: String?, onOpen: (PendingOperation) -> Unit, onRemove: () -> Unit) {
 		Text("Protea", fontSize = 28.sp)
 		Text("${e.customer} · ${e.origin}", fontSize = 13.sp)
+		signin?.let { Text("Registered for signing in with ${it.origin}.", fontSize = 13.sp) }
 		Spacer(Modifier.height(16.dp))
 		status?.let { Text(it); Spacer(Modifier.height(12.dp)) }
 		if (status == null && ops.isEmpty()) Text("Nothing is waiting for you. This list updates while the app is open.")

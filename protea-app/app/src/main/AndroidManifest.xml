@@ -14,6 +14,7 @@
 				<category android:name="android.intent.category.DEFAULT" />
 				<category android:name="android.intent.category.BROWSABLE" />
 				<data android:scheme="protea" android:host="enroll" />
+				<data android:scheme="protea-device" android:host="enroll" />
 			</intent-filter>
 		</activity>
 	</application>

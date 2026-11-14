@@ -23,6 +23,7 @@ import za.co.proteabank.authenticator.core.Keys
 object DeviceKeys {
 	private const val AUTH = "protea_auth_key"
 	private const val APPROVAL = "protea_approval_key"
+	private const val SIGNIN = "protea_signin_key"
 	private const val PROVIDER = "AndroidKeyStore"
 
 	private val store: KeyStore get() = KeyStore.getInstance(PROVIDER).apply { load(null) }
@@ -38,6 +39,21 @@ object DeviceKeys {
 	}
 
 	fun publicKeys(): Pair<Jwk, Jwk> = Keys.jwk(store.getCertificate(AUTH).publicKey) to Keys.jwk(store.getCertificate(APPROVAL).publicKey)
+
+	fun signinExists(): Boolean = store.containsAlias(SIGNIN)
+
+	/** Makes the sign-in key for the device auth service (replacing any): fingerprint on every use, and it dies if a fingerprint is added. Returns the base64 SubjectPublicKeyInfo the service takes. */
+	fun createSignin(): String {
+		deleteSignin()
+		generate(SIGNIN, userAuthentication = true)
+		return java.util.Base64.getEncoder().encodeToString(store.getCertificate(SIGNIN).publicKey.encoded)
+	}
+
+	fun deleteSignin() { if (store.containsAlias(SIGNIN)) store.deleteEntry(SIGNIN) }
+
+	/** A Signature ready for the sign-in key. It signs only after the fingerprint prompt unlocks it, or it throws. */
+	fun signinSignature(): Signature =
+		Signature.getInstance("SHA256withECDSA").apply { initSign(store.getKey(SIGNIN, null) as PrivateKey) }
 
 	fun delete() {
 		for (alias in listOf(AUTH, APPROVAL)) if (store.containsAlias(alias)) store.deleteEntry(alias)
