@@ -5,14 +5,14 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { check, type Harness, httpAgentHost, runCheck, type AgentHost, type Target } from "poppyseed/conformance";
 import { poppyseed } from "../poppyseed.config";
-import { approve, decline, list } from "./authenticator.ts";
+import { approve, signinCode, list, type AuthenticatorDeps } from "./authenticator.ts";
 import { authenticatorDeps } from "./authenticator-deps.ts";
 import { bank } from "./bank.ts";
 import { hooks, profile } from "./conformance.ts";
 import { termsHash } from "./device-auth.ts";
 import { devices } from "./devices.ts";
 import { baseUrl } from "./env.ts";
-import { FakePhone } from "./fake-phone.ts";
+import { FakePhone, FakeSignin } from "./fake-phone.ts";
 
 let host: AgentHost;
 beforeAll(async () => {
@@ -24,8 +24,8 @@ afterAll(async () => {
 
 const target = (): Target => ({ baseUrl, fetch: async (url, init) => (await poppyseed.handle(new Request(url, init))) ?? new Response("not found", { status: 404 }), agents: host, hooks, profile });
 
-/** Enrolls and confirms a phone for Thandi, as the app and her browser would. */
-async function enrollPhone(): Promise<FakePhone> {
+/** Enrolls and confirms a phone for Thandi, as the app and her browser would, then sets it up for the app: its sign-in code, its registration at the (stand-in) device auth service, and an unlocked session. */
+async function enrollPhone(deps: AuthenticatorDeps, signin: FakeSignin): Promise<FakePhone> {
 	const store = await devices();
 	const phone = new FakePhone("Pixel 8");
 	const started = await store.startEnrollment("cus_thandi");
@@ -34,12 +34,17 @@ async function enrollPhone(): Promise<FakePhone> {
 	if (!claimed.ok) throw new Error(claimed.reason);
 	phone.deviceId = claimed.device.id;
 	await store.confirm("cus_thandi", claimed.device.id);
+	const res = await signinCode(phone.signinCodeRequest(baseUrl), deps);
+	if (res.status !== 200) throw new Error(`no sign-in code: ${res.status}`);
+	signin.register(((await res.json()) as { code: string }).code, phone.signinDeviceId);
+	phone.token = signin.login(phone.signinDeviceId);
 	return phone;
 }
 
 it("lets only Thandi's phone approve her agent's payment: not the agent, whatever it claims, and not twice", async () => {
-	const phone = await enrollPhone();
-	const deps = await authenticatorDeps();
+	const signin = new FakeSignin();
+	const deps = { ...(await authenticatorDeps()), signin };
+	const phone = await enrollPhone(deps, signin);
 	const balance = async () => {
 		const b = await bank();
 		return b.balanceCents((await b.accountOf("cus_thandi", "acc_thandi_everyday"))!);

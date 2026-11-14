@@ -35,7 +35,7 @@ describe("phone sign-in", () => {
 	it("asks for a code for the customer, with the admin key, and hands back the phone's own address", async () => {
 		const { calls, phone } = service(devices(), json(made, 201));
 		const released = await phone.release("cust_1");
-		expect(released).toEqual({ ok: true, origin: "https://da.proteabank.co.za", code: "enr_abc.secretpart", expiresAt: Date.parse(made.expiresAt) });
+		expect(released).toEqual({ ok: true, origin: "https://da.proteabank.co.za", code: "enr_abc.secretpart", enrolmentId: "enr_abc", expiresAt: Date.parse(made.expiresAt) });
 		const ask = calls[1]!;
 		expect(ask.url).toBe("http://device-auth.internal:8080/v1/admin/enrolments");
 		expect(ask.method).toBe("POST");
@@ -87,6 +87,26 @@ describe("phone sign-in", () => {
 		expect(calls[0]!.method).toBe("POST");
 		expect(await phone.remove("cust_1", "dev_2")).toBe(false);
 		await expect(phone.remove("cust_1", "dev_3")).rejects.toBeInstanceOf(PhoneSigninError);
+	});
+
+	it("asks whose session a token is with the token alone, never the admin key, and says nothing for one the service refuses", async () => {
+		const { calls, phone } = service(json({ deviceId: "da_1", owner: "cust_1", expiresAt: "x" }), json({ error: "invalid" }, 401), json({}, 500));
+		expect(await phone.whoami("tok")).toEqual({ deviceId: "da_1", owner: "cust_1" });
+		expect(calls[0]!.url).toBe("http://device-auth.internal:8080/v1/whoami");
+		expect(calls[0]!.headers).toEqual({ authorization: "Bearer tok" });
+		expect(await phone.whoami("bad")).toBeUndefined();
+		await expect(phone.whoami("tok")).rejects.toBeInstanceOf(PhoneSigninError);
+	});
+
+	it("reads what became of a code, and knows nothing of one the service does not know", async () => {
+		const used = { state: "used", owner: "cust_1", expiresAt: made.expiresAt, deviceId: "da_1" };
+		const { calls, phone } = service(json(used), json({ ...used, state: "pending", deviceId: null }), json({}, 404));
+		expect(await phone.enrolmentOf("enr_abc")).toEqual({ state: "used", owner: "cust_1", deviceId: "da_1" });
+		expect(calls[0]!.url).toBe("http://device-auth.internal:8080/v1/admin/enrolments/enr_abc");
+		expect(await phone.enrolmentOf("enr_abc")).toEqual({ state: "pending", owner: "cust_1" });
+		expect(await phone.enrolmentOf("enr_nope")).toBeUndefined();
+		expect(await phone.enrolmentOf("../x")).toBeUndefined();
+		expect(calls).toHaveLength(3);
 	});
 
 	it("removes every phone of the customer, and counts them", async () => {

@@ -45,6 +45,20 @@ object SigninEnrollment {
 		return try { JSONObject(body).let { Challenge(it.getString("challenge"), it.getString("audience")) } } catch (_: Exception) { null }
 	}
 
+	/** The body of `POST /v1/auth/verify`: the signed challenge, to unlock the app. */
+	fun verifyBody(challenge: String, deviceId: String, signature: String): String =
+		JSONObject().put("challenge", challenge).put("deviceId", deviceId).put("signature", signature).toString()
+
+	/** The service's session token from its answer to verify, or null. It lives in memory only, and the bank checks it with the service on every request. */
+	fun session(status: Int, body: String): String? {
+		if (status != 200) return null
+		return try { JSONObject(body).getString("sessionToken").takeIf { it.isNotEmpty() } } catch (_: Exception) { null }
+	}
+
+	/** The body of `POST /authenticator/signin-code`: the approval key's signature over [Messages.signinCode], so only the confirmed phone can ask. */
+	fun codeRequestBody(deviceId: String, nonce: String, time: String, signature: String): String =
+		JSONObject().put("device_id", deviceId).put("nonce", nonce).put("time", time).put("signature", signature).toString()
+
 	/** `publicKey` is the base64 SubjectPublicKeyInfo and `signature` the base64 DER signature, both standard base64. */
 	fun body(challenge: String, deviceId: String, publicKey: String, signature: String, label: String, code: String): String = JSONObject()
 		.put("challenge", challenge).put("deviceId", deviceId).put("publicKey", publicKey).put("signature", signature)

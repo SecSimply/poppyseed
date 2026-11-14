@@ -88,26 +88,13 @@
       "hash": "Zkkag0csYFrPkirDi0biJgE79j9cDpsx918T6rXoV78"
     }
   ],
-  "requests": [
+  "signinCodes": [
     {
-      "method": "get",
-      "host": "app.proteabank.co.za",
-      "target": "/authenticator/operations",
+      "origin": "https://app.proteabank.co.za",
+      "deviceId": "dev_abc",
+      "nonce": "Y29kZS0x",
       "time": "1731254400000",
-      "nonce": "bm9uY2UtMQ",
-      "body": "",
-      "bodyHash": "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU",
-      "message": "PROTEA-DEVICE-V1\nGET\napp.proteabank.co.za\n/authenticator/operations\n1731254400000\nbm9uY2UtMQ\n47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU"
-    },
-    {
-      "method": "POST",
-      "host": "app.proteabank.co.za",
-      "target": "/authenticator/operations/op_abc/approve?x=1",
-      "time": "1731254400123",
-      "nonce": "bm9uY2UtMg",
-      "body": "{\"revision\":1,\"approval\":{\"signature\":\"s\",\"nonce\":\"n\",\"time\":\"1731254400000\"}}",
-      "bodyHash": "zek0sBhlmQQDz4wh5aQ39bwKt4R1EihKQtYsyza_gBM",
-      "message": "PROTEA-DEVICE-V1\nPOST\napp.proteabank.co.za\n/authenticator/operations/op_abc/approve?x=1\n1731254400123\nbm9uY2UtMg\nzek0sBhlmQQDz4wh5aQ39bwKt4R1EihKQtYsyza_gBM"
+      "message": "PROTEA-SIGNIN-CODE-V1\nhttps://app.proteabank.co.za\ndev_abc\nY29kZS0x\n1731254400000"
     }
   ],
   "approvals": [
@@ -126,11 +113,11 @@
     "jwk": {
       "kty": "EC",
       "crv": "P-256",
-      "x": "0LJUYjH9U5P7ZX_jTdc1RNV6JelCV-yMwlILkWIaotg",
-      "y": "w0Em42hufxHdfCEi1TjGyUECh9ubAHFcDPUOoykFR6Q"
+      "x": "unOFoSB7OoGKJA9g-g5DLDwaMSW0oNHbOSW5dZZtENU",
+      "y": "AFHRquSJqrm7yg0dSDhU4JFKC7UW5eI5FfJLJ0zcsg4"
     },
-    "message": "PROTEA-DEVICE-V1\nPOST\napp.proteabank.co.za\n/authenticator/operations/op_abc/approve?x=1\n1731254400123\nbm9uY2UtMg\nzek0sBhlmQQDz4wh5aQ39bwKt4R1EihKQtYsyza_gBM",
-    "der": "MEUCIAXruNUJ9Vwo1MoLyc-WUsgL2Y79IGSgLkEBo3I_TakZAiEAvznATpxWMhSPjf8fIcZRYMqILaW44y-XLJm0s0d-33M",
-    "raw": "xCRloJaAuezND9j5OPyP9dATcbeLTd2VnjwU9ZZSS-7dzxjKtmXV04Xp6k3D6NS_KshkFuflZ9gP3lcNYy0Spg"
+    "message": "PROTEA-SIGNIN-CODE-V1\nhttps://app.proteabank.co.za\ndev_abc\nY29kZS0x\n1731254400000",
+    "der": "MEUCIQCLOOf7kVnZkMGYnJL4aFrLMetRO5ceuTeOPBA4p7CDtAIgMbSxo9tXBIJrZQcDjsPMmycpmA0YaeA45rVPQq9Q10U",
+    "raw": "ubimaYUg2DgfkPAUc-A-xpf4qlrEMAoLqXRPzCRvf2EWfb87RbsrIz-B_R_cKzQ9rHezo0MSTJ1rODHjHywUSg"
   }
 }

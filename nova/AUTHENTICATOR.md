@@ -2,18 +2,18 @@
 
 A customer enrolls a phone once. From then on, every payment or transfer an agent asks for waits for that phone, which shows what is being asked, takes the customer's fingerprint and signs an approval. The bank performs it only for a valid signature. The agent cannot approve (the bank refuses its confirmation even when it claims the customer's approval), and neither can the bank's website.
 
-This is the bank's own protocol, not part of the Personal Agent Protocol. The code is `lib/authenticator.ts` (routes), `lib/device-auth.ts` (signatures) and `lib/devices.ts` (the store). `scripts/fake-phone.ts` is a phone on the command line that follows everything below, and `protea-app/` is the Android app.
+This is the bank's own protocol, not part of the Personal Agent Protocol. The code is `lib/authenticator.ts` (routes), `lib/device-auth.ts` (who is in the app, and signatures), `lib/phone-signin.ts` (the bank's calls to the device auth service) and `lib/devices.ts` (the store). `lib/fake-phone.ts` is a phone and a stand-in for the service, for tests, and `protea-app/` is the Android app.
 
-## Keys
+## Who is in the app, and what is approved
 
-The phone makes **two** P-256 key pairs in the Android Keystore (StrongBox when there is one) and never lets either leave:
+Two things are kept apart. **Who is in the app** is the device auth service's to say (its own repository, `SecSimply/device-auth-service`): the phone unlocks a sign-in key with the fingerprint and gets a short session from the service, and sends it to the bank as `Authorization: Bearer <session>`. **What was approved** is the bank's: the approval key signs exactly one operation. The phone makes **two** P-256 key pairs in the Android Keystore (StrongBox when there is one) and never lets either leave. Both need the fingerprint every time (`setUserAuthenticationRequired(true)`, no validity window, invalidated when a fingerprint is added):
 
-| Key | Signs | Unlocked by |
+| Key | Kept by | Signs |
 | --- | --- | --- |
-| **auth key** | every request to the bank | nothing, so the app can look for waiting approvals in the background |
-| **approval key** | an approval of one operation | the fingerprint, every time (`setUserAuthenticationRequired(true)`, no validity window, invalidated when a fingerprint is added) |
+| **sign-in key** | the device auth service (it holds the public key) | the service's challenge, to unlock the app (`DEVAUTH-V1\nauth\n…`) and to register |
+| **approval key** | the bank | an approval of one operation, and the request for the sign-in code |
 
-Signatures are ECDSA with SHA-256, written base64url (no padding). The bank accepts the 64 bytes `r‖s`, or ASN.1 DER, which is what Android's `Signature` gives; it tells them apart by length. Public keys are sent as JWKs: `{"kty":"EC","crv":"P-256","x":"…","y":"…"}`, with `x` and `y` 43 base64url characters.
+Signatures are ECDSA with SHA-256. The bank accepts the 64 bytes `r‖s`, or ASN.1 DER, which is what Android's `Signature` gives; it tells them apart by length. The bank's public key is sent as a JWK: `{"kty":"EC","crv":"P-256","x":"…","y":"…"}`, with `x` and `y` 43 base64url characters.
 
 ## Enrolling
 
@@ -21,15 +21,15 @@ Signatures are ECDSA with SHA-256, written base64url (no padding). The bank acce
 
    `protea://enroll?o=<bank origin>&e=<enrollment id>&s=<secret>`
 
-2. The app scans it, makes the two key pairs, and sends:
+2. The app scans it, makes the approval key pair, and sends:
 
    `POST {o}/authenticator/enroll`, `content-type: application/json`
 
    ```json
-   { "enrollment_id": "enr_…", "secret": "…", "name": "Pixel 8", "auth_key": { "kty": "EC", … }, "approval_key": { "kty": "EC", … } }
+   { "enrollment_id": "enr_…", "secret": "…", "name": "Pixel 8", "approval_key": { "kty": "EC", … } }
    ```
 
-   `name` is 1 to 40 characters. The keys must differ. The answer is `201`:
+   `name` is 1 to 40 characters. The answer is `201`:
 
    ```json
    { "device_id": "dev_…", "code": "123456", "origin": "https://sandbox.proteabank.co.za", "customer": "Thandi Nkosi" }
@@ -37,36 +37,20 @@ Signatures are ECDSA with SHA-256, written base64url (no padding). The bank acce
 
    Every failure (a wrong or spent secret, an expired enrollment, a customer who already has a device) is the same `400 invalid_enrollment`, so a bad guess learns nothing.
 
-3. The app shows `code` and the customer's name. The website shows the same code and asks whether it matches. **The device works only after the customer presses "The codes match"**, within 5 minutes. Until then every request from it is refused.
+3. The app shows `code` and the customer's name. The website shows the same code and asks whether it matches. **The device works only after the customer presses "The codes match"**, within 5 minutes. Until then the bank gives it nothing.
 
-A customer has one device. To replace it, a staff member removes it in the console, and the customer enrolls again.
+4. **Setting up the app.** The phone is not usable until it is also registered with the device auth service, which the bank requires for every request after this:
+   - The phone asks `POST {o}/authenticator/signin-code` with `{"device_id", "nonce", "time", "signature"}`. The approval key signs `PROTEA-SIGNIN-CODE-V1\n<bank origin>\n<device_id>\n<nonce>\n<time>` (the fingerprint), once, within 2 minutes of the bank's clock. Only a confirmed phone gets an answer (a waiting one is `401`, so the code is never in the QR code): `200 {"origin": "https://…", "code": "enr_….…", "expires_at": "…"}`, a one-time code for the service at `origin`, good for ten minutes. The bank notes which code it made for this phone. `409 already_set_up` if the phone is bound already, `409 too_many_phones`, `503` if the service is down.
+   - The phone registers at the service with the code and its sign-in key (the service's own protocol: its README), with one more fingerprint.
+   - The first session the phone unlocks binds it: the bank asks the service which device registered with the code it made, and accepts only that device's sessions for this phone from then on. Another phone registered at the service for the same customer is not this app.
 
-4. **Signing in (when the bank has the device auth service).** Once active, the app asks `POST {o}/authenticator/signin-code` (signed like any request, empty body) and gets `200 {"origin": "https://…", "code": "enr_….…", "expires_at": "…"}`: a one-time code for the service at `origin`, good for ten minutes. The app registers there with one fingerprint (the service's own protocol: its README). `404 signin_off` means the bank has no such service, `409 too_many_phones` that the customer has the most phones registered, `503` that the service is down. A phone that is still waiting for "The codes match" gets the usual `401`, so the code is never in the QR code.
+A customer has one device. To replace it, a staff member removes it in the console (its registrations at the service are revoked too), and the customer enrolls again.
 
-## Signing a request
+## Every other request
 
-Every request except enrollment carries four headers:
+Every request except enrollment and the sign-in code carries the service's session: `Authorization: Bearer <session>`. To get one the app asks the service for a challenge, signs it with the sign-in key after the fingerprint and sends it back (`/v1/auth/challenge`, `/v1/auth/verify`: the service's README). The session lives in the app's memory only and runs out after the service's `Auth__SessionSeconds`; the app also forgets it when it goes to the background, so the fingerprint is asked for again.
 
-| Header | Value |
-| --- | --- |
-| `x-device-id` | the `device_id` from enrollment |
-| `x-device-time` | milliseconds since 1970, within 2 minutes of the bank's clock |
-| `x-device-nonce` | up to 100 characters (random bytes in base64url), new for every request |
-| `x-device-signature` | the auth key's signature of the text below |
-
-The signed text is these seven lines joined by `\n`, with no final newline:
-
-```
-PROTEA-DEVICE-V1
-<METHOD, upper case>
-<the bank's host, such as sandbox.proteabank.co.za>
-<path and query exactly as sent, such as /authenticator/operations>
-<x-device-time>
-<x-device-nonce>
-<base64url of the SHA-256 of the request body bytes; the empty body for GET>
-```
-
-A request works once: the bank remembers each nonce, and checks the signature before it takes the nonce.
+The bank sends the session to the service (`GET /v1/whoami`), which says which device and customer it is. The bank accepts it only for that customer's active device, and only if the session's device is the one bound to the phone. A request that fails this is `401 invalid_device_request`; `503 signin_unavailable` means the service could not be asked, and the app shows nothing rather than guess.
 
 ## What is waiting
 
@@ -107,27 +91,21 @@ PROTEA-APPROVE-V1
 
 The **terms hash** is what the phone computes from the `summary` and `terms` it is showing, not the `terms_hash` field the bank sent (compare them, and refuse to sign if they differ): `base64url(SHA-256(canonical({"summary": summary, "terms": terms})))`. `canonical` is JSON with every object's keys sorted by UTF-16 code unit (JavaScript's default sort), at every level, and no spaces; strings, numbers and other values are written as `JSON.stringify` writes them (control characters as `\b \f \n \r \t` or `\u00xx` in lower case, `"` and `\` escaped, everything else as UTF-8).
 
-A good approval is `200` with `{"operation": …}`; the bank performs the payment at once. Refusals: `401` (the request is not signed by an enrolled device, the clock is off, or the request was already used), `403 invalid_approval` (the signature is not the approval key's for exactly this operation, revision and terms), `403 replayed_approval`, `404 operation_not_found`, `409 not_open` (already decided or expired) and `409 terms_changed` (a newer revision exists: read it again and ask the customer again).
+A good approval is `200` with `{"operation": …}`; the bank performs the payment at once. Refusals: `401` (no accepted sign-in: the session ran out, or the phone was removed or not confirmed), `403 invalid_approval` (the signature is not the approval key's for exactly this operation, revision and terms), `403 replayed_approval`, `404 operation_not_found`, `409 not_open` (already decided or expired) and `409 terms_changed` (a newer revision exists: read it again and ask the customer again).
 
 ## Declining
 
-`POST /authenticator/operations/{id}/decline` with an empty body, signed with the auth key. It needs no fingerprint, because turning a payment down is always safe.
+`POST /authenticator/operations/{id}/decline` with an empty body. It needs the unlocked app but no second fingerprint, because turning a payment down is always safe.
 
 ## The app
 
-`protea-app/` (Kotlin, Jetpack Compose, minSdk 28) follows everything above. Its tests check it against `protea-app/app/src/test/resources/vectors.json`, which the bank writes from its own code (`scripts/authenticator-vectors.ts`): the canonical JSON, the terms hash, both signed texts and a signature. Run that script again after any change to `lib/device-auth.ts`.
+`protea-app/` (Kotlin, Jetpack Compose, minSdk 28) follows everything above. Its tests check it against `protea-app/app/src/test/resources/vectors.json`, which the bank writes from its own code (`scripts/authenticator-vectors.ts`): the canonical JSON, the terms hash, the approval and sign-in-code texts and a signature. Run that script again after any change to `lib/device-auth.ts`.
 
-- **Where it looks:** while the app is open it asks for waiting operations every 5 seconds. There are no push messages, so a closed app sees nothing.
+- **Where it looks:** while the app is open and unlocked it asks for waiting operations every 5 seconds. There are no push messages, so a closed app sees nothing.
 - **What it refuses to do:** it signs only the hash it computes itself from the summary and terms on screen, and only when that equals the `terms_hash` the bank sent. It talks only to the origin in the QR code, over https, and shows that address before it enrolls.
 - **After a new fingerprint is added** to the phone, the approval key stops working for good. The app says so and offers to forget the phone; a staff member removes it at the bank and the customer enrolls again.
 - **No Google services are needed**: the QR scanner uses ML Kit's bundled model.
 
 ## Trying it without the app
 
-```
-node --experimental-strip-types --no-warnings nova/scripts/fake-phone.ts enroll "protea://enroll?o=…&e=…&s=…"
-node --experimental-strip-types --no-warnings nova/scripts/fake-phone.ts list
-node --experimental-strip-types --no-warnings nova/scripts/fake-phone.ts approve op_…
-```
-
-The account page shows the link under the QR code ("Cannot scan?"). The command-line phone keeps its keys in `~/.protea-fake-phone.json`.
+There is no command-line phone any more: signing in needs the device auth service. Its simulator (`dotnet run --project src/DeviceAuth.Simulator`, in its repository) covers the service's half, and `lib/fake-phone.ts` with its stand-in service covers the whole flow in tests (`lib/authenticator.test.ts`, `lib/phone-flow.test.ts`).

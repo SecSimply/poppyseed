@@ -1,7 +1,8 @@
 /**
  * The phones customers approve agent payments on. A customer opens an enrollment on the website (a QR code with a
- * one-time secret); the app claims it with two public keys it made in the phone's secure hardware, which leaves a
- * device waiting for the customer to confirm a code on the website; confirmed, it is active. Each customer has at most one
+ * one-time secret); the app claims it with the public approval key it made in the phone's secure hardware, which leaves a
+ * device waiting for the customer to confirm a code on the website; confirmed, it is active. Who is in the app is not a key
+ * kept here: the device auth service says so, and the device is bound to one of that service's devices (`signinDeviceId`). Each customer has at most one
  * live (waiting or active) device: the Postgres schema says so, so the rule holds under any race. In Postgres when
  * DATABASE_URL is set, in memory otherwise (local development and tests).
  */
@@ -18,17 +19,18 @@ export interface Device {
 	status: "waiting" | "active";
 	/** Shown on the phone and on the website while the device waits, so the customer can see both are the same device. */
 	code: string;
-	/** Verifies the app's requests. Needs no fingerprint, so the app can read what is waiting. */
-	authKey: PublicJwk;
-	/** Verifies approvals. The phone unlocks it with the fingerprint every time. */
+	/** Verifies approvals and the request for the sign-in code. The phone unlocks it with the fingerprint every time. */
 	approvalKey: PublicJwk;
+	/** The device auth service's one-time code made for this phone, until the phone's registration with it is seen. */
+	signinEnrolmentId?: string;
+	/** The device auth service's own id for this phone. Only a session of this device is the app of this phone. */
+	signinDeviceId?: string;
 	createdAt: string;
 	lastSeenAt?: string;
 }
 
 export interface NewDevice {
 	name: string;
-	authKey: PublicJwk;
 	approvalKey: PublicJwk;
 }
 
@@ -62,6 +64,10 @@ export interface Devices {
 	remove(customerId: string, deviceId: string): Promise<boolean>;
 	/** Every live device, for staff. */
 	all(): Promise<Device[]>;
+	/** Notes the device auth service's code made for this phone, so the phone's registration can be recognised. */
+	setSigninEnrolment(deviceId: string, enrolmentId: string): Promise<void>;
+	/** Binds the phone to the device auth service's device, once. False when it was bound already. */
+	bindSignin(deviceId: string, signinDeviceId: string): Promise<boolean>;
 	/** An active device by id, for checking its requests. */
 	active(deviceId: string): Promise<Device | undefined>;
 	touch(deviceId: string): Promise<void>;
@@ -99,7 +105,7 @@ export function memoryDevices(now: () => number = Date.now): Devices {
 			enrollment.used = true;
 			if (enrollment.expiresAt <= now()) return { ok: false, reason: "expired" };
 			if (liveOf(enrollment.customerId)) return { ok: false, reason: "has_device" };
-			const created: Device & { waitsUntil: number } = { id: newId("dev"), customerId: enrollment.customerId, name: device.name, status: "waiting", code: newCode(), authKey: device.authKey, approvalKey: device.approvalKey, createdAt: new Date(now()).toISOString(), waitsUntil: now() + CONFIRM_MS };
+			const created: Device & { waitsUntil: number } = { id: newId("dev"), customerId: enrollment.customerId, name: device.name, status: "waiting", code: newCode(), approvalKey: device.approvalKey, createdAt: new Date(now()).toISOString(), waitsUntil: now() + CONFIRM_MS };
 			devices.set(created.id, created);
 			return { ok: true, device: strip(created) };
 		},
@@ -123,6 +129,16 @@ export function memoryDevices(now: () => number = Date.now): Devices {
 		},
 		async all() {
 			return [...devices.values()].filter((d) => d.status === "active" || d.waitsUntil > now()).map(strip);
+		},
+		async setSigninEnrolment(deviceId, enrolmentId) {
+			const device = devices.get(deviceId);
+			if (device) device.signinEnrolmentId = enrolmentId;
+		},
+		async bindSignin(deviceId, signinDeviceId) {
+			const device = devices.get(deviceId);
+			if (!device || device.signinDeviceId !== undefined) return false;
+			device.signinDeviceId = signinDeviceId;
+			return true;
 		},
 		async active(deviceId) {
 			const device = devices.get(deviceId);
@@ -156,8 +172,12 @@ export function postgresDevices(db: Db): Devices {
 		await db.query(`create table if not exists nova_device_enrollments (id text primary key, customer_id text not null, secret_hash text not null, expires_at timestamptz not null, used boolean not null default false)`);
 		await db.query(
 			`create table if not exists nova_devices (id text primary key, customer_id text not null, name text not null, status text not null check (status in ('waiting', 'active')), code text not null,
-			 auth_key jsonb not null, approval_key jsonb not null, created_at timestamptz not null default now(), waits_until timestamptz not null, last_seen_at timestamptz)`,
+			 approval_key jsonb not null, created_at timestamptz not null default now(), waits_until timestamptz not null, last_seen_at timestamptz)`,
 		);
+		// The auth key is gone: who is in the app is the device auth service's to say. Phones enrolled with one enroll again.
+		await db.query(`alter table nova_devices drop column if exists auth_key`);
+		await db.query(`alter table nova_devices add column if not exists signin_enrolment_id text`);
+		await db.query(`alter table nova_devices add column if not exists signin_device_id text`);
 		// A customer has one live device: a waiting one that has not timed out, or an active one. A waiting device that timed out is cleared before a new one is added.
 		await db.query(`create unique index if not exists nova_devices_one_per_customer on nova_devices (customer_id)`);
 		await db.query(`create table if not exists nova_device_nonces (device_id text not null, nonce text not null, expires_at timestamptz not null, primary key (device_id, nonce))`);
@@ -175,8 +195,9 @@ export function postgresDevices(db: Db): Devices {
 		name: String(r.name),
 		status: r.status === "active" ? "active" : "waiting",
 		code: String(r.code),
-		authKey: r.auth_key as PublicJwk,
 		approvalKey: r.approval_key as PublicJwk,
+		...(r.signin_enrolment_id ? { signinEnrolmentId: String(r.signin_enrolment_id) } : {}),
+		...(r.signin_device_id ? { signinDeviceId: String(r.signin_device_id) } : {}),
 		createdAt: iso(r.created_at),
 		...(r.last_seen_at ? { lastSeenAt: iso(r.last_seen_at) } : {}),
 	});
@@ -207,9 +228,9 @@ export function postgresDevices(db: Db): Devices {
 				await clearStale(tx, customerId);
 				const created = (
 					await tx.query(
-						`insert into nova_devices (id, customer_id, name, status, code, auth_key, approval_key, waits_until) values ($1, $2, $3, 'waiting', $4, $5, $6, $7)
+						`insert into nova_devices (id, customer_id, name, status, code, approval_key, waits_until) values ($1, $2, $3, 'waiting', $4, $5, $6)
 						 on conflict (customer_id) do nothing returning *`,
-						[newId("dev"), customerId, device.name, newCode(), JSON.stringify(device.authKey), JSON.stringify(device.approvalKey), new Date(Date.now() + CONFIRM_MS)],
+						[newId("dev"), customerId, device.name, newCode(), JSON.stringify(device.approvalKey), new Date(Date.now() + CONFIRM_MS)],
 					)
 				).rows[0];
 				return created ? { ok: true, device: deviceOf(created) } : { ok: false, reason: "has_device" };
@@ -240,6 +261,14 @@ export function postgresDevices(db: Db): Devices {
 		async all() {
 			await schema();
 			return (await db.query(`select * from nova_devices where status = 'active' or waits_until > now() order by created_at`)).rows.map(deviceOf);
+		},
+		async setSigninEnrolment(deviceId, enrolmentId) {
+			await schema();
+			await db.query(`update nova_devices set signin_enrolment_id = $2 where id = $1`, [deviceId, enrolmentId]);
+		},
+		async bindSignin(deviceId, signinDeviceId) {
+			await schema();
+			return (await db.query(`update nova_devices set signin_device_id = $2 where id = $1 and signin_device_id is null returning id`, [deviceId, signinDeviceId])).rows.length > 0;
 		},
 		async active(deviceId) {
 			await schema();

@@ -12,11 +12,10 @@ sealed interface EnrollResult {
 
 object Enrollment {
 	/** The body of `POST {origin}/authenticator/enroll`. `name` is 1 to 40 characters. */
-	fun body(link: EnrollmentLink, name: String, authKey: Jwk, approvalKey: Jwk): String = JSONObject()
+	fun body(link: EnrollmentLink, name: String, approvalKey: Jwk): String = JSONObject()
 		.put("enrollment_id", link.enrollmentId)
 		.put("secret", link.secret)
 		.put("name", name.trim().take(40).ifEmpty { "Android phone" })
-		.put("auth_key", JSONObject(authKey.toMap()))
 		.put("approval_key", JSONObject(approvalKey.toMap()))
 		.toString()
 

@@ -9,14 +9,13 @@ object Messages {
 
 	fun sha256(data: ByteArray): String = b64.encodeToString(MessageDigest.getInstance("SHA-256").digest(data))
 
-	fun bodyHash(body: String): String = sha256(body.toByteArray(Charsets.UTF_8))
-
 	/** What an approval covers: the words the customer reads and the terms behind them. */
 	fun termsHash(summary: String, terms: Map<String, Any?>): String =
 		sha256(canonicalJson(mapOf("summary" to summary, "terms" to terms)).toByteArray(Charsets.UTF_8))
 
-	fun request(method: String, host: String, target: String, time: String, nonce: String, body: String): String =
-		listOf("PROTEA-DEVICE-V1", method.uppercase(), host, target, time, nonce, bodyHash(body)).joinToString("\n")
+	/** What the approval key signs to ask for the sign-in code: this bank, this phone, once. */
+	fun signinCode(origin: String, deviceId: String, nonce: String, time: String): String =
+		listOf("PROTEA-SIGNIN-CODE-V1", origin, deviceId, nonce, time).joinToString("\n")
 
 	fun approval(origin: String, deviceId: String, operationId: String, revision: Int, termsHash: String, nonce: String, time: String): String =
 		listOf("PROTEA-APPROVE-V1", origin, deviceId, operationId, revision.toString(), termsHash, nonce, time).joinToString("\n")

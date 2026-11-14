@@ -42,7 +42,7 @@ class OperationsTest {
 
 	@Test fun eachAnswerFromTheBankMeansOneThing() {
 		assertEquals(Outcome.Approved, Operations.outcome(true, 200, "{}")); assertEquals(Outcome.Declined, Operations.outcome(false, 200, "{}"))
-		assertEquals(Outcome.NotActive, Operations.outcome(true, 401, "{}")); assertEquals(Outcome.Refused, Operations.outcome(true, 403, "{}"))
+		assertEquals(Outcome.Locked, Operations.outcome(true, 401, "{}")); assertEquals(Outcome.Refused, Operations.outcome(true, 403, "{}"))
 		assertEquals(Outcome.Gone, Operations.outcome(true, 404, "{}"))
 		assertEquals(Outcome.NotOpen, Operations.outcome(true, 409, """{"error":"not_open"}"""))
 		val changed = Operations.outcome(true, 409, """{"error":"terms_changed","operation":${json()}}""") as Outcome.Changed

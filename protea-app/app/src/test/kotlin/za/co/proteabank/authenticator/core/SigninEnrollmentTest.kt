@@ -42,6 +42,20 @@ class SigninEnrollmentTest {
 		assertNotNull(SigninEnrollment.refusal(401)); assertEquals("", SigninEnrollment.refusal(201))
 	}
 
+	@Test fun readsTheSessionAndNothingElseIsOne() {
+		assertEquals("tok", SigninEnrollment.session(200, """{"sessionToken":"tok","expiresAt":"2026-11-14T12:00:00.0000000+00:00"}"""))
+		assertNull(SigninEnrollment.session(401, """{"error":"invalid"}"""))
+		assertNull(SigninEnrollment.session(200, "nope")); assertNull(SigninEnrollment.session(200, """{"sessionToken":""}""")); assertNull(SigninEnrollment.session(200, "{}"))
+	}
+
+	@Test fun theVerifyAndCodeRequestBodiesCarryWhatTheServicesExpect() {
+		val v = JSONObject(SigninEnrollment.verifyBody("c", "dev_1", "sig"))
+		assertEquals("c", v.getString("challenge")); assertEquals("dev_1", v.getString("deviceId")); assertEquals("sig", v.getString("signature"))
+		val r = JSONObject(SigninEnrollment.codeRequestBody("dev_1", "n", "123", "s"))
+		assertEquals(setOf("device_id", "nonce", "time", "signature"), r.keys().asSequence().toSet())
+		assertEquals("dev_1", r.getString("device_id"))
+	}
+
 	@Test fun theBodyCarriesTheCodeAndAShortLabel() {
 		val j = JSONObject(SigninEnrollment.body("c", "dev_1", "pk", "sig", "x".repeat(300), "enr_a.b"))
 		assertEquals("enr_a.b", j.getString("enrolmentCode")); assertEquals(100, j.getString("label").length)

@@ -52,7 +52,7 @@ Its details live in one file, `nova/proteabankoidc.md`, which holds the secret a
 
 **Where Curity is reached:** `OIDC_ENTRY` (https) is the address the bank reads Curity's discovery from, `https://idp.proteabank.co.za/oauth/v2/oauth-anonymous`, while Curity's issuer is still `https://idp.fluffycloud.co.za/oauth/v2/oauth-anonymous`. The bank requires the issuer in the document to equal `OIDC_ISSUER`. The document is cached for an hour, so restart the service after a change in Curity. Do not use Curity's *Issuer Override*: it breaks every endpoint address.
 
-**Other variables:** `STAFF_EMAILS`, `STAFF_TRUST_UNVERIFIED`, `OIDC_ENTRY`, `DEVICE_AUTH_URL`, `DEVICE_AUTH_ADMIN_KEY`, `DEVICE_AUTH_PUBLIC_URL` (see "One phone, two uses"), and the existing `POPPYSEED_BASE_URL`, `POPPYSEED_SECRET` and `POPPY_STAFF_KEY`.
+**Other variables:** `STAFF_EMAILS`, `STAFF_TRUST_UNVERIFIED`, `OIDC_ENTRY`, `DEVICE_AUTH_URL`, `DEVICE_AUTH_ADMIN_KEY`, `DEVICE_AUTH_PUBLIC_URL` (see "The device auth service: who is in the app"), and the existing `POPPYSEED_BASE_URL`, `POPPYSEED_SECRET` and `POPPY_STAFF_KEY`.
 
 `scripts/login-local.ts` proves all of it against a stand-in provider (the Inspector's `scripts/mock-oidc.ts`): a stranger, a customer, a login that is not a customer, a staff member, and an attacker who forges a cookie, replays a callback, signs someone out from another site, or tries an open redirect.
 
@@ -136,16 +136,16 @@ The demo customer Thandi Nkosi has the saved payees `pye_thandi_rent`, `pye_than
 
 ## The Protea app: approving agent payments on a phone
 
-A customer can enroll a phone (Account → Add my phone, then scan the QR code in the app). Once one is enrolled, **every** payment or transfer an agent asks for waits for that phone: the app shows it, the customer confirms with a fingerprint, and the phone signs the approval. The agent's own confirmation is refused, even when it claims the customer's approval, and the bank's approval page no longer approves for that customer. The wire format is in [AUTHENTICATOR.md](AUTHENTICATOR.md). The Android app is `../protea-app` (see its README for building and installing it by hand); `scripts/fake-phone.ts` is a phone on the command line.
+A customer can enroll a phone (Account → Add my phone, then scan the QR code in the app). Once one is enrolled, **every** payment or transfer an agent asks for waits for that phone: the app shows it, the customer confirms with a fingerprint, and the phone signs the approval. The agent's own confirmation is refused, even when it claims the customer's approval, and the bank's approval page no longer approves for that customer. The wire format is in [AUTHENTICATOR.md](AUTHENTICATOR.md). The Android app is `../protea-app` (see its README for building and installing it by hand). Its signing in goes through the device auth service (see below).
 
 - A customer has one device. Replacing it is a staff action: `/staff` → *Customers' phones* (Curity staff sign-in; the emergency key can only look).
 - Enrolling needs the customer's signed-in browser, and the customer comparing a code on the phone and the website. It does not ask for a new Curity sign-in.
 - A proposal made before a phone was enrolled stays an ordinary proposal until it lapses (15 minutes).
 - Postgres is required when deployed, as for customers and accounts: the tables `nova_devices`, `nova_device_enrollments`, `nova_device_nonces` and `nova_approvals` are created on first use.
 
-## One phone, two uses: registering it with the device auth service
+## The device auth service: who is in the app
 
-The one phone a customer adds (**Add my phone** on the Account page) also registers with the *device auth service* (its own repository, `SecSimply/device-auth-service`), where a phone proves it holds a key kept in its secure hardware, unlocked by the fingerprint. There is no separate step on the website. It is on only when the service is configured; without the three variables the phone only approves payments.
+The Protea app proves who is using it to the *device auth service* (its own repository, `SecSimply/device-auth-service`): the phone holds a key in its secure hardware, unlocked by the fingerprint, and signs a challenge. The service answers with a short session, and the app sends it to the bank, which asks the service whose it is (`GET /v1/whoami`). Without the service no phone can use the app (every route but enrolling answers `503`).
 
 | Variable | What it is |
 | --- | --- |
@@ -153,12 +153,12 @@ The one phone a customer adds (**Add my phone** on the Account page) also regist
 | `DEVICE_AUTH_ADMIN_KEY` | The service's admin key. On Railway a reference to the service's own variable, so it is never copied. It stays on the server. |
 | `DEVICE_AUTH_PUBLIC_URL` | The address the phone reaches the service at (`https://da.proteabank.co.za`). The bank hands it to the phone. |
 
-How it works (`lib/phone-signin.ts`, `signinCode` in `lib/authenticator.ts`):
+How it fits together (`lib/phone-signin.ts`, `lib/device-auth.ts`, `lib/authenticator.ts`; the protocol is in AUTHENTICATOR.md):
 
-1. The customer adds the phone as described in AUTHENTICATOR.md: the QR code, the code to compare, **The codes match**.
-2. Once the phone is active, the app asks `POST /authenticator/signin-code`, signed like every request. A phone that is only waiting is refused, so the code is never in the QR code and is worth nothing to someone who only saw it.
-3. The bank asks the service for a one-time code for that customer (valid once, ten minutes) and returns it with the service's public address. The phone registers there with one fingerprint.
-4. The Account page says "One more step" until the service lists a phone for the customer.
-5. When staff remove the phone, its sign-in registrations are revoked too (`removeAll`). If the service cannot be reached, the audit log says so.
+1. The customer adds the phone: the QR code, the code to compare, **The codes match**. The phone then has only an approval key.
+2. The phone asks `POST /authenticator/signin-code`, signed by the approval key (a fingerprint). Only a confirmed phone gets the one-time code the bank asks the service for, so the code is never in the QR code and is worth nothing to someone who only saw it.
+3. The phone registers at the service with the code, and the bank binds the phone to the device that registered with it. Another phone of the same customer registered at the service is not this app.
+4. From then on every request carries a session of the service. The bank refuses it unless it is that bound device's.
+5. The Account page says "One more step" until the phone is bound. When staff remove the phone its registrations at the service are revoked too (`removeAll`); if the service cannot be reached the audit log says so.
 
-Signing in to the website with the phone is not built yet: for now the phone is only registered.
+Set the service's `Auth__SessionSeconds` to how long the app stays unlocked (900 on Railway). The service decides when a session ends; the app also locks when it goes to the background.

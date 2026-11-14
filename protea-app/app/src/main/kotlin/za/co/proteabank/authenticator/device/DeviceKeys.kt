@@ -15,30 +15,28 @@ import za.co.proteabank.authenticator.core.Jwk
 import za.co.proteabank.authenticator.core.Keys
 
 /**
- * The phone's two keys, made in the Android Keystore (the secure hardware when there is one) and never taken out.
- * The auth key signs every request and asks for nothing, so the app can look for waiting approvals.
- * The approval key signs one approval and is unlocked by the fingerprint each time, with no time window; it stops working
- * for good if a fingerprint is added.
+ * The phone's two keys, made in the Android Keystore (the secure hardware when there is one) and never taken out. Both are
+ * unlocked by the fingerprint each time, with no time window, and stop working for good if a fingerprint is added.
+ * The sign-in key signs in to the device auth service, which says who is in the app. The approval key signs one approval,
+ * and the request for the sign-in code.
  */
 object DeviceKeys {
-	private const val AUTH = "protea_auth_key"
 	private const val APPROVAL = "protea_approval_key"
 	private const val SIGNIN = "protea_signin_key"
 	private const val PROVIDER = "AndroidKeyStore"
 
 	private val store: KeyStore get() = KeyStore.getInstance(PROVIDER).apply { load(null) }
 
-	fun exists(): Boolean = store.containsAlias(AUTH) && store.containsAlias(APPROVAL)
+	fun exists(): Boolean = store.containsAlias(APPROVAL)
 
-	/** Makes both keys (replacing any), and returns their public halves. */
-	fun create(): Pair<Jwk, Jwk> {
+	/** Makes the approval key (replacing any), and returns its public half. */
+	fun create(): Jwk {
 		delete()
-		generate(AUTH, userAuthentication = false)
 		generate(APPROVAL, userAuthentication = true)
-		return publicKeys()
+		return approvalPublicKey()
 	}
 
-	fun publicKeys(): Pair<Jwk, Jwk> = Keys.jwk(store.getCertificate(AUTH).publicKey) to Keys.jwk(store.getCertificate(APPROVAL).publicKey)
+	fun approvalPublicKey(): Jwk = Keys.jwk(store.getCertificate(APPROVAL).publicKey)
 
 	fun signinExists(): Boolean = store.containsAlias(SIGNIN)
 
@@ -56,19 +54,15 @@ object DeviceKeys {
 		Signature.getInstance("SHA256withECDSA").apply { initSign(store.getKey(SIGNIN, null) as PrivateKey) }
 
 	fun delete() {
-		for (alias in listOf(AUTH, APPROVAL)) if (store.containsAlias(alias)) store.deleteEntry(alias)
+		if (store.containsAlias(APPROVAL)) store.deleteEntry(APPROVAL)
 	}
-
-	/** Signs with the auth key, which needs nothing from the person. */
-	fun signWithAuthKey(message: ByteArray): ByteArray =
-		Signature.getInstance("SHA256withECDSA").run { initSign(store.getKey(AUTH, null) as PrivateKey); update(message); sign() }
 
 	/** A Signature ready for the approval key. It signs only after the fingerprint prompt unlocks it, or it throws. */
 	fun approvalSignature(): Signature =
 		Signature.getInstance("SHA256withECDSA").apply { initSign(store.getKey(APPROVAL, null) as PrivateKey) }
 
 	/** Where each key lives, for the person to see: hardware level and whether the fingerprint is required. */
-	fun describe(): List<String> = listOf(AUTH to "auth key", APPROVAL to "approval key").map { (alias, label) ->
+	fun describe(): List<String> = listOf(SIGNIN to "sign-in key", APPROVAL to "approval key").filter { store.containsAlias(it.first) }.map { (alias, label) ->
 		val key = store.getKey(alias, null) as PrivateKey
 		val info = KeyFactory.getInstance(key.algorithm, PROVIDER).getKeySpec(key, KeyInfo::class.java)
 		val where = if (Build.VERSION.SDK_INT >= 31) when (info.securityLevel) {

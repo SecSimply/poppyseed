@@ -19,15 +19,14 @@ class LiveBankTest {
 
 	@Test fun aMadeUpEnrollmentIsRefusedTheSameWayAsAnyBadOne() {
 		val link = EnrollmentLink.parse("protea://enroll?o=https%3A%2F%2Fsandbox.proteabank.co.za&e=enr_doesnotexist&s=nope")!!
-		val (auth, approval) = DeviceKeys.create()
-		val r = Http.send(link.origin, "POST", "/authenticator/enroll", Enrollment.body(link, "Test phone", auth, approval))
+		val approval = DeviceKeys.create()
+		val r = Http.send(link.origin, "POST", "/authenticator/enroll", Enrollment.body(link, "Test phone", approval))
 		assertEquals(400, r.status)
 		assertTrue(Enrollment.result(link, r.status, r.body) is EnrollResult.Refused)
 	}
 
-	@Test fun aSignedRequestFromAnUnknownDeviceIsRefusedWithoutDetail() {
-		DeviceKeys.create()
-		val r = Http.signed("https://sandbox.proteabank.co.za", "dev_doesnotexist", "GET", "/authenticator/operations")
+	@Test fun aRequestWithASessionTheServiceDoesNotKnowIsRefusedWithoutDetail() {
+		val r = Http.bearer("https://sandbox.proteabank.co.za", "tok_doesnotexist", "GET", "/authenticator/operations")
 		assertEquals(401, r.status)
 		assertTrue(r.body.contains("invalid_device_request"))
 	}

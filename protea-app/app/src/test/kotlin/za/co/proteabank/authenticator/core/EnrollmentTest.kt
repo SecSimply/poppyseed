@@ -2,6 +2,7 @@ package za.co.proteabank.authenticator.core
 
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -36,11 +37,11 @@ class EnrollmentTest {
 		assertEquals("https://bank.example:8443", l.origin); assertEquals("bank.example:8443", l.host)
 	}
 
-	@Test fun theBodyNamesTheEnrollmentBothKeysAndANoLongerThanFortyCharacters() {
-		val j = JSONObject(Enrollment.body(link, "x".repeat(60), jwk, Jwk("c".repeat(43), "d".repeat(43))))
+	@Test fun theBodyNamesTheEnrollmentTheApprovalKeyAndANoLongerThanFortyCharacters() {
+		val j = JSONObject(Enrollment.body(link, "x".repeat(60), Jwk("c".repeat(43), "d".repeat(43))))
 		assertEquals("enr_ExYPnjTs6rBe", j.getString("enrollment_id")); assertEquals(40, j.getString("name").length)
-		assertEquals("EC", j.getJSONObject("auth_key").getString("kty")); assertEquals("c".repeat(43), j.getJSONObject("approval_key").getString("x"))
-		assertEquals("Android phone", JSONObject(Enrollment.body(link, "  ", jwk, jwk)).getString("name"))
+		assertEquals("c".repeat(43), j.getJSONObject("approval_key").getString("x")); assertFalse(j.has("auth_key"))
+		assertEquals("Android phone", JSONObject(Enrollment.body(link, "  ", jwk)).getString("name"))
 	}
 
 	@Test fun anAcceptedEnrollmentIsReadAndAnythingElseIsRefused() {

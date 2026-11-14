@@ -5,9 +5,6 @@ import android.os.Looper
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
-import za.co.proteabank.authenticator.core.Requests
-import za.co.proteabank.authenticator.core.hostOf
-import za.co.proteabank.authenticator.device.DeviceKeys
 
 data class HttpResult(val status: Int, val body: String)
 
@@ -32,7 +29,7 @@ object Http {
 		} finally { c.disconnect() }
 	}
 
-	/** A request signed by this phone's auth key, as every request after enrollment must be. */
-	fun signed(origin: String, deviceId: String, method: String, target: String, body: String = ""): HttpResult =
-		send(origin, method, target, body, Requests.headers(deviceId, method, hostOf(origin), target, body, DeviceKeys::signWithAuthKey))
+	/** A request that carries the device auth service's session, as every request after setup must: the bank asks the service whose it is. */
+	fun bearer(origin: String, token: String, method: String, target: String, body: String = ""): HttpResult =
+		send(origin, method, target, body, mapOf("authorization" to "Bearer $token"))
 }

@@ -27,8 +27,8 @@ sealed interface Outcome {
 	data class Changed(val latest: PendingOperation?) : Outcome
 	/** Already decided, or it expired. */
 	data object NotOpen : Outcome
-	/** The bank does not accept this phone: not enrolled, not confirmed on the website, or removed. */
-	data object NotActive : Outcome
+	/** The bank does not accept the app's sign-in: it ran out, or the phone was removed. The app locks and asks for the fingerprint again. */
+	data object Locked : Outcome
 	/** The bank refused the signature. */
 	data object Refused : Outcome
 	data object Gone : Outcome
@@ -58,7 +58,7 @@ object Operations {
 	/** What happened to an approval or a decline, from the bank's answer. */
 	fun outcome(approving: Boolean, status: Int, body: String): Outcome = when (status) {
 		200 -> if (approving) Outcome.Approved else Outcome.Declined
-		401 -> Outcome.NotActive
+		401 -> Outcome.Locked
 		403 -> Outcome.Refused
 		404 -> Outcome.Gone
 		409 -> try {

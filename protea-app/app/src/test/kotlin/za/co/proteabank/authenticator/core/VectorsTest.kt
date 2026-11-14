@@ -27,11 +27,8 @@ class VectorsTest {
 		}
 	}
 
-	@Test fun requestMessageMatchesTheBank() {
-		for (r in list("requests")) {
-			assertEquals(r["bodyHash"], Messages.bodyHash(r["body"] as String))
-			assertEquals(r["message"], Messages.request(r["method"] as String, r["host"] as String, r["target"] as String, r["time"] as String, r["nonce"] as String, r["body"] as String))
-		}
+	@Test fun signinCodeMessageMatchesTheBank() {
+		for (r in list("signinCodes")) assertEquals(r["message"], Messages.signinCode(r["origin"] as String, r["deviceId"] as String, r["nonce"] as String, r["time"] as String))
 	}
 
 	@Test fun approvalMessageMatchesTheBank() {

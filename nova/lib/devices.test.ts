@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { CONFIRM_MS, ENROLLMENT_MS, memoryDevices, postgresDevices, type Devices, type NewDevice, type PublicJwk } from "./devices.ts";
 
 const key = (n: string): PublicJwk => ({ kty: "EC", crv: "P-256", x: `x-${n}`, y: `y-${n}` });
-const phone = (name = "Pixel 8"): NewDevice => ({ name, authKey: key("auth"), approvalKey: key("approve") });
+const phone = (name = "Pixel 8"): NewDevice => ({ name, approvalKey: key("approve") });
 
 interface Setup {
 	devices: Devices;
@@ -57,7 +57,7 @@ describe.each(stores)("%s devices", (_name, make) => {
 		expect((await devices.liveOf("cus_a"))?.id).toBe(claimed.device.id);
 		expect(await devices.confirm("cus_a", claimed.device.id)).toBe(true);
 		expect(await devices.hasActive("cus_a")).toBe(true);
-		expect(await devices.active(claimed.device.id)).toMatchObject({ authKey: key("auth"), approvalKey: key("approve") });
+		expect(await devices.active(claimed.device.id)).toMatchObject({ approvalKey: key("approve") });
 	});
 
 	it("takes an enrollment's secret once, and a wrong secret neither enrolls nor spends it", async () => {
@@ -132,6 +132,17 @@ describe.each(stores)("%s devices", (_name, make) => {
 		expect(await devices.active(device.id)).toBeUndefined();
 		expect(await devices.hasActive("cus_a")).toBe(false);
 		expect(await devices.all()).toEqual([]);
+	});
+
+	it("binds a device to the sign-in service's device once, and keeps the code it was made for", async () => {
+		const { devices } = await make();
+		const device = await enrolled(devices);
+		expect((await devices.active(device.id))?.signinDeviceId).toBeUndefined();
+		await devices.setSigninEnrolment(device.id, "enr_1");
+		expect(await devices.bindSignin(device.id, "da_1")).toBe(true);
+		expect(await devices.bindSignin(device.id, "da_2")).toBe(false); // the first one stays
+		expect(await devices.active(device.id)).toMatchObject({ signinEnrolmentId: "enr_1", signinDeviceId: "da_1" });
+		expect(await devices.bindSignin("dev_unknown", "da_3")).toBe(false);
 	});
 
 	it("accepts a nonce once per device", async () => {

@@ -9,8 +9,8 @@ Kotlin, Jetpack Compose, minSdk 28. No Google services (CameraX and ML Kit's bun
 | Where | What |
 | --- | --- |
 | `core/` | Pure Kotlin: canonical JSON, the terms hash, the signed texts, key handling, the enrollment link and the operations model. Tested on the computer. |
-| `device/` | The two Keystore keys (the auth key signs requests; the approval key needs the fingerprint each time) and the prompt that unlocks it. |
-| `net/`, `store/` | Plain https, signed requests, and the device id kept on the phone. |
+| `device/` | The two Keystore keys (the sign-in key unlocks the app and the approval key approves; each needs the fingerprint every time) and the prompt that unlocks it. |
+| `net/`, `store/` | Plain https with the sign-in service's session, and the device ids kept on the phone. |
 | `MainActivity.kt`, `QrScanner.kt` | The screens: scan, confirm the address, show the code, the waiting list, the detail with Approve and Decline. |
 
 ## Tests
@@ -40,9 +40,11 @@ The release key is **not in the repository**. It is read from `~/.protea-app/key
 
 A debug and a release build are signed by different keys, so installing one over the other also means enrolling again.
 
-## One setup for everything
+## One setup, and the app is locked
 
-The customer adds the phone once (the QR code on the Account page, then "The codes match" on the website). After that the app shows **Finish setting up**: it asks the bank (`POST /authenticator/signin-code`, signed like every request) for a one-time code for the [device auth service](https://github.com/SecSimply/device-auth-service), makes a third Keystore key (fingerprint on every use), signs `DEVAUTH-V1\nregister\n…` after one fingerprint, and registers its public key with the code. The bank hands the code over only to a confirmed phone, so the QR code alone gets nobody a sign-in. Signing in with that key is not built yet.
+The customer adds the phone once (the QR code on the Account page, then "The codes match" on the website). The app then shows **Finish setting up**: one fingerprint signs the request for the one-time code for the [device auth service](https://github.com/SecSimply/device-auth-service) (approval key, `POST /authenticator/signin-code`), and a second registers the sign-in key there. The bank hands the code only to a confirmed phone, so the QR code alone gets nobody in.
+
+After that the app is **locked** until the fingerprint unlocks it: the sign-in key signs a challenge from the service, which answers with a short session kept in memory only. Every call to the bank carries it, and the bank asks the service whose it is. The app locks again when it goes to the background or the session ends. Approving a payment still needs the approval key and its own fingerprint, over exactly what is shown.
 
 ## Not done yet
 
