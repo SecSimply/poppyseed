@@ -1,9 +1,10 @@
 /** The app's side of the bank, with a fake phone that signs as the Android app does. */
 import { describe, expect, it } from "vitest";
-import { approve, decline, detail, enroll, list, type AuthenticatorDeps, type HostOperation } from "./authenticator.ts";
+import { approve, decline, detail, enroll, list, signinCode, type AuthenticatorDeps, type HostOperation } from "./authenticator.ts";
 import { CLOCK_SKEW_MS, termsHash } from "./device-auth.ts";
 import { memoryDevices, type Devices } from "./devices.ts";
 import { FakePhone } from "./fake-phone.ts";
+import { PhoneSigninError } from "./phone-signin.ts";
 
 const ORIGIN = "https://bank.test";
 const AGENT = "https://agent.test/client.json";
@@ -304,5 +305,51 @@ describe("declining", () => {
 		expect((await post(phone, deps, "/authenticator/operations/op_done/decline", "{}", decline)).status).toBe(200);
 		expect(ops.get("op_done")?.state).toBe("succeeded");
 		expect(await devices.approvals("cus_a")).toEqual([]);
+	});
+});
+
+describe("the sign-in code", () => {
+	const released = { ok: true as const, origin: "https://da.test", code: "enr_x.y", expiresAt: Date.parse("2026-11-14T12:00:00Z") };
+	const ask = (phone: FakePhone, deps: AuthenticatorDeps) => signinCode(phone.request(ORIGIN, "POST", "/authenticator/signin-code", ""), deps);
+
+	it("goes to a confirmed phone, for its own customer", async () => {
+		const { deps } = await setup();
+		const asked: string[] = [];
+		deps.signin = { release: async (owner) => (asked.push(owner), released) };
+		const phone = await enrolled(deps, "cus_a");
+		const res = await ask(phone, deps);
+		expect(res.status).toBe(200);
+		expect(await res.json()).toEqual({ origin: "https://da.test", code: "enr_x.y", expires_at: "2026-11-14T12:00:00.000Z" });
+		expect(asked).toEqual(["cus_a"]);
+	});
+
+	it("is refused to a phone the customer has not confirmed yet, so a QR code alone gets nothing", async () => {
+		const { deps, devices } = await setup();
+		let released_ = false;
+		deps.signin = { release: async () => ((released_ = true), released) };
+		const phone = new FakePhone("Pixel");
+		const started = await devices.startEnrollment("cus_a");
+		if (!started.ok) throw new Error("no enrollment");
+		const claimed = await enroll(new Request(`${ORIGIN}/authenticator/enroll`, { method: "POST", body: JSON.stringify({ enrollment_id: started.id, secret: started.secret, name: "Pixel", auth_key: phone.keys.authKey, approval_key: phone.keys.approvalKey }) }), deps);
+		phone.deviceId = ((await claimed.json()) as { device_id: string }).device_id;
+		expect((await ask(phone, deps)).status).toBe(401);
+		expect(released_).toBe(false);
+	});
+
+	it("is refused to a request that no phone signed", async () => {
+		const { deps } = await setup();
+		deps.signin = { release: async () => released };
+		const res = await signinCode(new Request(`${ORIGIN}/authenticator/signin-code`, { method: "POST", body: "" }), deps);
+		expect(res.status).toBe(401);
+	});
+
+	it("says so when the bank has no sign-in service, when the customer has the most phones, and when the service is down", async () => {
+		const { deps } = await setup();
+		const phone = await enrolled(deps);
+		expect((await ask(phone, deps)).status).toBe(404);
+		deps.signin = { release: async () => ({ ok: false, reason: "limit" }) };
+		expect((await ask(phone, deps)).status).toBe(409);
+		deps.signin = { release: async () => { throw new PhoneSigninError("down"); } };
+		expect((await ask(phone, deps)).status).toBe(503);
 	});
 });

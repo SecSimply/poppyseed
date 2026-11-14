@@ -10,6 +10,7 @@ import { customerById } from "../../lib/customers";
 import { reports } from "../../lib/feedback";
 import { links } from "../../lib/links";
 import { oidc } from "../../lib/oidc";
+import { phoneSignin } from "../../lib/phone-signin";
 import { sessionFrom } from "../../lib/session";
 import { mayLink, removeDeviceAs, staffAccess } from "../../lib/staff";
 
@@ -135,7 +136,11 @@ export default async function Staff({ searchParams }: { searchParams: Promise<{ 
 		const me = await actor(form);
 		const id = String(form.get("device_id") ?? "");
 		const phone = (await (await devices()).all()).find((d) => d.id === id);
-		if (await removeDeviceAs(me, await devices(), id)) record(me, `removed the phone ${phone?.name ?? id} of ${phone?.customerId ?? "a customer"}`);
+		if (await removeDeviceAs(me, await devices(), id)) {
+			record(me, `removed the phone ${phone?.name ?? id} of ${phone?.customerId ?? "a customer"}`);
+			// The same phone is registered for signing in: take that away too. The bank's side is already gone, so a failure here is recorded, not hidden.
+			if (phone) await phoneSignin()?.removeAll(phone.customerId).catch(() => record(me, `could not remove the sign-in registration of ${phone.customerId}: remove it at the device auth service`));
+		}
 		revalidatePath("/staff");
 	}
 	async function unlinkLogin(form: FormData) {

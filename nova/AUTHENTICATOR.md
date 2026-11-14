@@ -41,6 +41,8 @@ Signatures are ECDSA with SHA-256, written base64url (no padding). The bank acce
 
 A customer has one device. To replace it, a staff member removes it in the console, and the customer enrolls again.
 
+4. **Signing in (when the bank has the device auth service).** Once active, the app asks `POST {o}/authenticator/signin-code` (signed like any request, empty body) and gets `200 {"origin": "https://…", "code": "enr_….…", "expires_at": "…"}`: a one-time code for the service at `origin`, good for ten minutes. The app registers there with one fingerprint (the service's own protocol: its README). `404 signin_off` means the bank has no such service, `409 too_many_phones` that the customer has the most phones registered, `503` that the service is down. A phone that is still waiting for "The codes match" gets the usual `401`, so the code is never in the QR code.
+
 ## Signing a request
 
 Every request except enrollment carries four headers:

@@ -40,9 +40,9 @@ The release key is **not in the repository**. It is read from `~/.protea-app/key
 
 A debug and a release build are signed by different keys, so installing one over the other also means enrolling again.
 
-## Signing in to the website
+## One setup for everything
 
-The Account page also shows "Sign in with your phone", a QR code `protea-device://enroll?o=<service>&c=<code>` for the [device auth service](https://github.com/SecSimply/device-auth-service). The app registers a third Keystore key for it (fingerprint on every use): it gets a challenge, signs `DEVAUTH-V1\nregister\n…` after one fingerprint, and registers the public key with the one-time code. Signing in with that key is not built yet.
+The customer adds the phone once (the QR code on the Account page, then "The codes match" on the website). After that the app shows **Finish setting up**: it asks the bank (`POST /authenticator/signin-code`, signed like every request) for a one-time code for the [device auth service](https://github.com/SecSimply/device-auth-service), makes a third Keystore key (fingerprint on every use), signs `DEVAUTH-V1\nregister\n…` after one fingerprint, and registers its public key with the code. The bank hands the code over only to a confirmed phone, so the QR code alone gets nobody a sign-in. Signing in with that key is not built yet.
 
 ## Not done yet
 

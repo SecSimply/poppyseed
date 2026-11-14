@@ -6,6 +6,7 @@
  */
 import { authenticate, checkApproval, DeviceAuthError, parsePublicJwk, termsHash } from "./device-auth.ts";
 import type { Device, Devices } from "./devices.ts";
+import { PhoneSigninError, type PhoneSignin } from "./phone-signin.ts";
 
 /** The part of the Poppy instance these routes use. */
 export interface OperationsApi {
@@ -34,6 +35,8 @@ export interface AuthenticatorDeps {
 	customerName(customerId: string): Promise<string | undefined>;
 	/** The bank's public address, which the phone's signatures are bound to. */
 	origin: string;
+	/** The device auth service, when the bank has one: the phone's sign-in registration. */
+	signin?: Pick<PhoneSignin, "release">;
 }
 
 const json = (body: unknown, status = 200): Response => Response.json(body, { status, headers: { "cache-control": "no-store" } });
@@ -123,4 +126,22 @@ export const decline = (request: Request, deps: AuthenticatorDeps, id: string): 
 			await deps.devices.record({ operationId: id, revision: op.revision, deviceId: device.id, customerId: device.customerId, decision: "declined", termsHash: termsHash(op.summary, op.terms), signature: "" });
 		}
 		return json({ operation: await view(done, deps, device.customerId) });
+	});
+
+/**
+ * POST /authenticator/signin-code: the phone asks for the one-time code that registers it with the device auth service, so the
+ * one phone the customer added also signs them in. Only a confirmed phone, by its signed request, gets one (a waiting phone
+ * is refused as any other request is), so the code never travels in the QR code and is worth nothing to someone who only saw that.
+ */
+export const signinCode = (request: Request, deps: AuthenticatorDeps): Promise<Response> =>
+	guarded(request, deps, async (device) => {
+		if (!deps.signin) return problem(404, "signin_off", "this bank does not sign customers in with a phone");
+		try {
+			const released = await deps.signin.release(device.customerId);
+			if (!released.ok) return problem(409, "too_many_phones", "the customer already has the most phones registered for signing in");
+			return json({ origin: released.origin, code: released.code, expires_at: new Date(released.expiresAt).toISOString() });
+		} catch (error) {
+			if (!(error instanceof PhoneSigninError)) throw error;
+			return problem(503, "signin_unavailable", "the sign-in service is not available right now: try again in a few minutes");
+		}
 	});

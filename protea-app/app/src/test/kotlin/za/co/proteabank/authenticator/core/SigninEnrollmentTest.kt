@@ -8,25 +8,22 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SigninEnrollmentTest {
-	private val real = "protea-device://enroll?o=https%3A%2F%2Fda.proteabank.co.za&c=enr_AbC123_-x.Secret_part-9"
-
-	@Test fun readsTheLinkTheAccountPageShows() {
-		val l = SigninLink.parse(real)!!
+	@Test fun readsTheBanksAnswer() {
+		val l = SigninLink.fromAnswer(200, """{"origin":"https://DA.proteabank.co.za","code":"enr_AbC123_-x.Secret_part-9","expires_at":"2026-11-14T12:00:00.000Z"}""")!!
 		assertEquals("https://da.proteabank.co.za", l.origin)
 		assertEquals("enr_AbC123_-x.Secret_part-9", l.code)
 	}
 
 	@Test fun refusesAnythingElse() {
-		val bad = listOf(
-			"", "https://da.proteabank.co.za", "protea://enroll?o=https%3A%2F%2Fda.proteabank.co.za&c=enr_a.b",
-			"protea-device://other?o=https%3A%2F%2Fda.proteabank.co.za&c=enr_a.b",
-			"protea-device://enroll?o=http%3A%2F%2Fda.proteabank.co.za&c=enr_a.b", // not https
-			"protea-device://enroll?o=https%3A%2F%2Fda.proteabank.co.za%2Fx&c=enr_a.b", // a path
-			"protea-device://enroll?o=https%3A%2F%2Fu%40da.proteabank.co.za&c=enr_a.b", // credentials
-			"protea-device://enroll?o=https%3A%2F%2Fda.proteabank.co.za&c=nodot", "protea-device://enroll?o=https%3A%2F%2Fda.proteabank.co.za&c=enr_a.",
-			"protea-device://enroll?o=https%3A%2F%2Fda.proteabank.co.za&c=enr_a.b%20c", "protea-device://enroll?o=https%3A%2F%2Fda.proteabank.co.za",
-		)
-		for (b in bad) assertNull(b, SigninLink.parse(b))
+		val good = "enr_a.b"
+		for (o in listOf("", "http://da.proteabank.co.za", "https://da.proteabank.co.za/x", "https://u@da.proteabank.co.za", "https://da.proteabank.co.za?x=1", "da.proteabank.co.za")) assertNull(o, SigninLink.of(o, good))
+		for (c in listOf("", "nodot", "enr_a.", "enr_.b", "x_a.b", "enr_a.b c", "enr_a.b".padEnd(130, 'x'))) assertNull(c, SigninLink.of("https://da.proteabank.co.za", c))
+		assertNull(SigninLink.fromAnswer(409, """{"origin":"https://da.proteabank.co.za","code":"enr_a.b"}"""))
+		assertNull(SigninLink.fromAnswer(200, "nope")); assertNull(SigninLink.fromAnswer(200, """{"origin":"https://da.proteabank.co.za"}"""))
+	}
+
+	@Test fun keepsANonStandardPort() {
+		assertEquals("https://da.example:8443", SigninLink.of("https://da.example:8443", "enr_a.b")!!.origin)
 	}
 
 	@Test fun theSignedTextIsTheServicesFiveLines() {

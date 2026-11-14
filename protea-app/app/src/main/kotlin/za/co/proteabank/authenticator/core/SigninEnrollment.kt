@@ -1,34 +1,27 @@
 package za.co.proteabank.authenticator.core
 
 import java.net.URI
-import java.net.URLDecoder
 import java.security.SecureRandom
 import java.util.Base64
 import org.json.JSONObject
 
-/** What the QR code under "Sign in with your phone" holds: `protea-device://enroll?o=<service origin>&c=<one-time code>`. */
+/** Where to register for signing in: the service's origin and the one-time code, both from the bank's answer to `POST /authenticator/signin-code`. */
 data class SigninLink(val origin: String, val code: String) {
 	companion object {
 		private val codePattern = Regex("enr_[A-Za-z0-9_-]{1,60}\\.[A-Za-z0-9_-]{1,60}")
 
-		/** The link if this app accepts it, or null. The service must be reached over https and the origin carries no path. */
-		fun parse(text: String): SigninLink? {
-			val uri = try { URI(text.trim()) } catch (_: Exception) { return null }
-			if (uri.scheme != "protea-device" || uri.host != "enroll" || uri.rawQuery == null) return null
-			val q = uri.rawQuery.split('&').mapNotNull {
-				val i = it.indexOf('=')
-				if (i < 1) null else it.substring(0, i) to URLDecoder.decode(it.substring(i + 1), "UTF-8")
-			}.toMap()
-			val origin = origin(q["o"] ?: return null) ?: return null
-			val code = q["c"] ?: return null
+		/** The link if the answer is one this app accepts, or null. The service must be reached over https and the origin carries no path. */
+		fun of(origin: String, code: String): SigninLink? {
+			val u = try { URI(origin) } catch (_: Exception) { return null }
+			if (u.scheme != "https" || u.host.isNullOrEmpty() || u.userInfo != null || (u.rawPath ?: "").trim('/').isNotEmpty() || u.rawQuery != null || u.rawFragment != null) return null
 			if (code.length > 120 || !codePattern.matches(code)) return null
-			return SigninLink(origin, code)
+			return SigninLink("https://" + u.host.lowercase() + if (u.port != -1 && u.port != 443) ":${u.port}" else "", code)
 		}
 
-		private fun origin(value: String): String? {
-			val u = try { URI(value) } catch (_: Exception) { return null }
-			if (u.scheme != "https" || u.host.isNullOrEmpty() || u.userInfo != null || (u.rawPath ?: "").trim('/').isNotEmpty() || u.rawQuery != null || u.rawFragment != null) return null
-			return "https://" + u.host.lowercase() + if (u.port != -1 && u.port != 443) ":${u.port}" else ""
+		/** Reads the bank's answer to the sign-in code request. */
+		fun fromAnswer(status: Int, body: String): SigninLink? {
+			if (status != 200) return null
+			return try { JSONObject(body).let { of(it.getString("origin"), it.getString("code")) } } catch (_: Exception) { null }
 		}
 	}
 }

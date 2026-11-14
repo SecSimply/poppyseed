@@ -7,7 +7,6 @@ import { sessionFrom } from "../../lib/session";
 import { customerOf, mayRead, viewer } from "../../lib/viewer";
 import { AgentBanner, NeedScope, NoCustomer } from "../agent-banner";
 import { DevicesSection } from "./devices/section";
-import { PhoneSigninSection } from "./signin-phone/section";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Account" };
@@ -61,7 +60,6 @@ export default async function Account() {
 				</div>}
 			</section>
 			{who.via === "site" && <DevicesSection customerId={customer.id} />}
-			{who.via === "site" && <PhoneSigninSection customerId={customer.id} />}
 			{who.via === "site" && <section aria-labelledby="connected">
 				<h2 id="connected">Connected personal agents</h2>
 				{connections.length === 0 ? (
