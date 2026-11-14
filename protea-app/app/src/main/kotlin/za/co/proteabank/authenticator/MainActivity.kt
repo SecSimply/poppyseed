@@ -256,8 +256,9 @@ class MainActivity : FragmentActivity() {
 		var link by remember { mutableStateOf("") }
 		Text("Protea", fontSize = 28.sp)
 		Spacer(Modifier.height(8.dp))
-		signin?.let { Text("Registered for signing in with ${it.origin}.", fontSize = 13.sp); Spacer(Modifier.height(8.dp)) }
-		Text("This phone is not set up. On the bank's website, sign in, open Account, press \"Add my phone\", and scan the code.")
+		signin?.let { Text("Signing in: this phone is registered with ${it.origin}.", fontSize = 16.sp); Spacer(Modifier.height(16.dp)) }
+		Text(if (signin != null) "Approving payments: not set up yet. On the bank's website, sign in, open Account, press \"Add my phone\", and scan the code."
+			else "This phone is not set up. On the bank's website, sign in, open Account, and scan the code under \"Sign in with your phone\" or \"Add my phone\".")
 		Spacer(Modifier.height(16.dp))
 		Button(onClick = onScan) { Text("Scan the code") }
 		Spacer(Modifier.height(24.dp))
@@ -269,7 +270,7 @@ class MainActivity : FragmentActivity() {
 	private fun Inbox(e: Enrolled, signin: SigninDevice?, ops: List<PendingOperation>, status: String?, onOpen: (PendingOperation) -> Unit, onRemove: () -> Unit) {
 		Text("Protea", fontSize = 28.sp)
 		Text("${e.customer} · ${e.origin}", fontSize = 13.sp)
-		signin?.let { Text("Registered for signing in with ${it.origin}.", fontSize = 13.sp) }
+		signin?.let { Text("Signing in: this phone is registered with ${it.origin}.", fontSize = 13.sp) }
 		Spacer(Modifier.height(16.dp))
 		status?.let { Text(it); Spacer(Modifier.height(12.dp)) }
 		if (status == null && ops.isEmpty()) Text("Nothing is waiting for you. This list updates while the app is open.")
